@@ -1,0 +1,41 @@
+stages:
+  - build
+
+variables:
+  GIT_SUBMODULE_STRATEGY: recursive
+
+compile-shaders-job:
+  tags:
+    - os/win11
+
+  stage: build
+  script:
+    - mkdir build_debug
+    - cd build_debug
+    - cmake .. -DCMAKE_BUILD_TYPE=Debug -DDONUT_WITH_VULKAN=OFF
+    - cmake --build . --target shaders_all --config Debug
+    - echo "Compile Shaders complete."
+
+build-sample-debug-job:
+  tags:
+    - os/win11
+
+  stage: build
+  script:
+    - mkdir build_debug
+    - cd build_debug
+    - cmake .. -DCMAKE_BUILD_TYPE=Debug -DDONUT_WITH_VULKAN=OFF
+    - cmake --build . --target stf_bindless_rendering --config Debug
+    - echo "Compile Sample Debug complete."
+
+build-sample-release-job:
+  tags:
+    - os/win11
+
+  stage: build
+  script:
+    - mkdir build_release
+    - cd build_release
+    - cmake .. -DCMAKE_BUILD_TYPE=Release -DDONUT_WITH_VULKAN=OFF
+    - cmake --build . --target stf_bindless_rendering --config Release
+    - echo "Compile Sample Release complete."

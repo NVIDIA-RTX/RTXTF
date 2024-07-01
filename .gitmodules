@@ -1,0 +1,12 @@
+[submodule "external/DLSS"]
+	path = external/DLSS
+	url = https://github.com/NVIDIA/DLSS.git
+[submodule "assets/media/glTF-Sample-Assets"]
+	path = assets/media/glTF-Sample-Assets
+	url = https://github.com/KhronosGroup/glTF-Sample-Assets.git
+[submodule "libraries/RTXTF-Library"]
+	path = libraries/RTXTF-Library
+	url = ../RTXTF-Library.git
+[submodule "external/donut"]
+	path = external/donut
+	url = https://github.com/NVIDIA-RTX/Donut.git
