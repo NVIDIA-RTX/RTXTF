@@ -68,7 +68,7 @@ public:
 
     dm::int2 Size;
 
-    RenderTargets(nvrhi::IDevice* device, dm::int2 size);
+    RenderTargets(nvrhi::IDevice* device, dm::int2 dlssInputSize, dm::int2 dlssOutputSize);
 
     bool IsUpdateRequired(dm::int2 size);
     void NextFrame();

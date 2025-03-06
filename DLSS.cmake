@@ -9,19 +9,19 @@ if (WIN32)
 	set(dlss_lib_debug "nvsdk_ngx_d_dbg_iterator1.lib")
 
 	set_target_properties(DLSS PROPERTIES
-		IMPORTED_IMPLIB "${dlss_sdk}/lib/${dlss_platform}/x86_64/${dlss_lib_release}"
-		IMPORTED_IMPLIB_DEBUG "${dlss_sdk}/lib/${dlss_platform}/x86_64/${dlss_lib_debug}"
+		IMPORTED_IMPLIB "${dlss_sdk}/lib/${dlss_platform}/x64/${dlss_lib_release}"
+		IMPORTED_IMPLIB_DEBUG "${dlss_sdk}/lib/${dlss_platform}/x64/${dlss_lib_debug}"
 		IMPORTED_LOCATION "${dlss_sdk}/lib/${dlss_platform}/rel/nvngx_dlss.dll"
 		IMPORTED_LOCATION_DEBUG "${dlss_sdk}/lib/${dlss_platform}/dev/nvngx_dlss.dll"
 	)
 
 	set(DLSS_SHARED_LIBRARY_PATH "${dlss_sdk}/lib/${dlss_platform}/$<IF:$<CONFIG:Debug>,dev,rel>/nvngx_dlss.dll")
 
-elseif (UNIX AND CMAKE_SYSTEM_PROCESSOR STREQUAL "x86_64")
+elseif (UNIX AND CMAKE_SYSTEM_PROCESSOR STREQUAL "x64")
 	add_library(DLSS STATIC IMPORTED)
 
 	set(dlss_platform "Linux_x86_64")
-	set(dlss_lib "libnvidia-ngx-dlss.so.2.3.1")
+	set(dlss_lib "libnvidia-ngx-dlss.so.310.1.0")
 
 	set_target_properties(DLSS PROPERTIES
 		IMPORTED_LOCATION "${dlss_sdk}/lib/${dlss_platform}/libnvsdk_ngx.a"

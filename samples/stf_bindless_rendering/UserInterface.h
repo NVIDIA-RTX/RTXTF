@@ -15,6 +15,10 @@
 #include <donut/render/TemporalAntiAliasingPass.h>
 #include <donut/app/imgui_renderer.h>
 
+#if ENABLE_DLSS
+#include "../../external/DLSS/include/nvsdk_ngx_helpers.h"
+#endif
+
 #include <optional>
 #include <string>
 
@@ -33,7 +37,6 @@ enum class AntiAliasingMode : uint32_t
     None,
     TAA,
 #if ENABLE_DLSS
-    DLAA,
     DLSS
 #endif
 };
@@ -88,7 +91,8 @@ enum class StfAddressMode
 enum class StfPipelineType
 {
     RayGen,
-    Compute
+    Compute,
+    Raster,
 };
 
 enum class StfThreadGroupSize
@@ -106,8 +110,38 @@ enum class StfWaveLaneLayout
     QuadZ16x2,
 };
 
+// Ultra Quality is broken and is not used in the sample application for DLSS, punting for now until we get more answers for DLSS team
+enum class DLSSQualityModes
+{
+    PerfQuality_Value_MaxPerf,
+    PerfQuality_Value_Balanced,
+    PerfQuality_Value_MaxQuality,
+    PerfQuality_Value_UltraPerformance,
+    PerfQuality_Value_DLAA,
+};
+
+static NVSDK_NGX_PerfQuality_Value GetNativeDLSSModes(DLSSQualityModes mode)
+{
+    switch (mode)
+    {
+    case DLSSQualityModes::PerfQuality_Value_MaxPerf:
+        return NVSDK_NGX_PerfQuality_Value::NVSDK_NGX_PerfQuality_Value_MaxPerf;
+    case DLSSQualityModes::PerfQuality_Value_Balanced:
+        return NVSDK_NGX_PerfQuality_Value::NVSDK_NGX_PerfQuality_Value_Balanced;
+    case DLSSQualityModes::PerfQuality_Value_MaxQuality:
+        return NVSDK_NGX_PerfQuality_Value::NVSDK_NGX_PerfQuality_Value_MaxQuality;
+    case DLSSQualityModes::PerfQuality_Value_UltraPerformance:
+        return NVSDK_NGX_PerfQuality_Value::NVSDK_NGX_PerfQuality_Value_UltraPerformance;
+    case DLSSQualityModes::PerfQuality_Value_DLAA:
+        return NVSDK_NGX_PerfQuality_Value::NVSDK_NGX_PerfQuality_Value_DLAA;
+    default:
+        return NVSDK_NGX_PerfQuality_Value::NVSDK_NGX_PerfQuality_Value_DLAA;
+    };
+}
+
 struct UIData
 {
+    bool isRasterized = true;
     bool showUI = true;
     bool isLoading = true;
 
@@ -116,18 +150,20 @@ struct UIData
     bool enableTextures = true;
 
 #if ENABLE_DLSS
-    AntiAliasingMode aaMode = AntiAliasingMode::DLSS;
+    AntiAliasingMode aaMode = AntiAliasingMode::TAA;
 #else
     AntiAliasingMode aaMode = AntiAliasingMode::None;
 #endif
+    bool aaModeChanged = false;
 
     bool enableAnimations = true;
     float animationSpeed = 1.f;
 
 #if ENABLE_DLSS
-    bool dlssAvailable = true;
+    bool dlssAvailable = false;
     float dlssExposureScale = 2.f;
     float dlssSharpness = 0.f;
+    DLSSQualityModes qualityMode = DLSSQualityModes::PerfQuality_Value_DLAA;
 #endif
     bool clearShaderCache = false;
     bool stfPipelineUpdate = false;
