@@ -32,6 +32,7 @@ struct LightingConstants
 
     LightConstants light;
     PlanarViewConstants view;
+    PlanarViewConstants viewPrev;
 
     // STF Settings
     uint stfSplitScreen;

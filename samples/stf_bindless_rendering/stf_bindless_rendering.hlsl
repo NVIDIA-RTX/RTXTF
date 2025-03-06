@@ -440,7 +440,7 @@ float3 shadeSurface(
         ShadeSurface(g_Const.light, ms, worldPos, viewDirection, diffuseTerm, specularTerm);
     }
 
-    return diffuseTerm + specularTerm + ms.diffuseAlbedo * g_Const.ambientColor.rgb;
+    return diffuseTerm + specularTerm + (ms.diffuseAlbedo + ms.specularF0) * g_Const.ambientColor.rgb;
 }
 
 float4 GetCividis(int index, int min, int max)

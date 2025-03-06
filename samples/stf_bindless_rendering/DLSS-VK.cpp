@@ -76,14 +76,21 @@ public:
         m_FeatureSupported = true;
     }
 
+    void GetRenderSize(unsigned int* inputWidth,
+        unsigned int* inputHeight,
+        unsigned int* outputWidth,
+        unsigned int* outputHeight) override
+    {
+        *inputWidth = m_InputWidth;
+        *inputHeight = m_InputHeight;
+        *outputWidth = m_OutputWidth;
+        *outputHeight = m_OutputHeight;
+    }
+
     void SetRenderSize(
-        uint32_t inputWidth, uint32_t inputHeight,
-        uint32_t outputWidth, uint32_t outputHeight) override
+        uint32_t outputWidth, uint32_t outputHeight, NVSDK_NGX_PerfQuality_Value qualityMode) override
     {
         if (!m_FeatureSupported)
-            return;
-
-        if (m_InputWidth == inputWidth && m_InputHeight == inputHeight && m_OutputWidth == outputWidth && m_OutputHeight == outputHeight)
             return;
         
         if (m_DlssHandle)
@@ -96,18 +103,44 @@ public:
         m_FeatureCommandList->open();
         VkCommandBuffer vkCmdBuf = m_FeatureCommandList->getNativeObject(nvrhi::ObjectTypes::VK_CommandBuffer);
 
+        unsigned int inputWidth;
+        unsigned int inputHeight;
+        unsigned int pOutRenderMaxWidth;
+        unsigned int pOutRenderMaxHeight;
+        unsigned int pOutRenderMinWidth;
+        unsigned int pOutRenderMinHeight;
+        float pOutSharpness;
+
+        NVSDK_NGX_Result result = NGX_DLSS_GET_OPTIMAL_SETTINGS(m_Parameters,
+            outputWidth,
+            outputHeight,
+            qualityMode,
+            &inputWidth,
+            &inputHeight,
+            &pOutRenderMaxWidth,
+            &pOutRenderMaxHeight,
+            &pOutRenderMinWidth,
+            &pOutRenderMinHeight,
+            &pOutSharpness);
+
+        if (result != NVSDK_NGX_Result_Success)
+        {
+            log::warning("DLSS Mode isn't supported, Result = 0x%08x (%ls)", result, GetNGXResultAsString(result));
+            return;
+        }
+
         NVSDK_NGX_DLSS_Create_Params dlssParams = {};
         dlssParams.Feature.InWidth = inputWidth;
         dlssParams.Feature.InHeight = inputHeight;
         dlssParams.Feature.InTargetWidth = outputWidth;
         dlssParams.Feature.InTargetHeight = outputHeight;
-        dlssParams.Feature.InPerfQualityValue = NVSDK_NGX_PerfQuality_Value_MaxQuality;
+        dlssParams.Feature.InPerfQualityValue = qualityMode;
         dlssParams.InFeatureCreateFlags =
             NVSDK_NGX_DLSS_Feature_Flags_IsHDR |
             NVSDK_NGX_DLSS_Feature_Flags_DepthInverted |
             NVSDK_NGX_DLSS_Feature_Flags_MVLowRes;
 
-        NVSDK_NGX_Result result = NGX_VULKAN_CREATE_DLSS_EXT(vkCmdBuf, 1, 1, &m_DlssHandle, m_Parameters, &dlssParams);
+        result = NGX_VULKAN_CREATE_DLSS_EXT(vkCmdBuf, 1, 1, &m_DlssHandle, m_Parameters, &dlssParams);
 
         m_FeatureCommandList->close();
         m_Device->executeCommandList(m_FeatureCommandList);
@@ -193,8 +226,8 @@ public:
         evalParams.InReset = resetHistory;
         evalParams.InJitterOffsetX = view.GetPixelOffset().x;
         evalParams.InJitterOffsetY = view.GetPixelOffset().y;
-        evalParams.InRenderSubrectDimensions.Width = view.GetViewExtent().width();
-        evalParams.InRenderSubrectDimensions.Height = view.GetViewExtent().height();
+        evalParams.InRenderSubrectDimensions.Width = renderTargets.Size.x;
+        evalParams.InRenderSubrectDimensions.Height = renderTargets.Size.y;
 
         NVSDK_NGX_Result result = NGX_VULKAN_EVALUATE_DLSS_EXT(vkCmdBuf, m_DlssHandle, m_Parameters, &evalParams);
 

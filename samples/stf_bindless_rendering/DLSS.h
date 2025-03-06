@@ -12,6 +12,7 @@
 
 #if ENABLE_DLSS
 
+#include "../../external/DLSS/include/nvsdk_ngx_helpers.h"
 #include <memory>
 #include <nvrhi/nvrhi.h>
 
@@ -35,8 +36,8 @@ protected:
     NVSDK_NGX_Handle* m_DlssHandle = nullptr;
     NVSDK_NGX_Parameter* m_Parameters = nullptr;
 
-    // Use the AppID from the DLSS sample app until we get a separate one for RTXDI... wait, is it random?
-    static const uint32_t c_ApplicationID = 231313132;
+    // Get app id from DLSS sample
+    static const uint32_t c_ApplicationID = 0x0023;
 
     uint32_t m_InputWidth = 0;
     uint32_t m_InputHeight = 0;
@@ -62,8 +63,12 @@ public:
     [[nodiscard]] bool IsAvailable() const { return m_FeatureSupported && m_IsAvailable; }
 
     virtual void SetRenderSize(
-        uint32_t inputWidth, uint32_t inputHeight,
-        uint32_t outputWidth, uint32_t outputHeight) = 0;
+        uint32_t outputWidth, uint32_t outputHeight, NVSDK_NGX_PerfQuality_Value qualityMode) = 0;
+
+    virtual void GetRenderSize(unsigned int* inputWidth,
+        unsigned int* inputHeight,
+        unsigned int* outputWidth,
+        unsigned int* outputHeight) = 0;
 
     virtual void Render(
         nvrhi::ICommandList* commandList,

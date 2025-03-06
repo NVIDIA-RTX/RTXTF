@@ -101,20 +101,33 @@ void UserInterface::PostProcessSettings()
         ImGui::Text("Post-Processing");
 
         AntiAliasingMode previousAAMode = m_ui.aaMode;
-        ImGui::RadioButton("No DLAA or DLSS", (int*)&m_ui.aaMode, (int)AntiAliasingMode::None);
+        DLSSQualityModes previousQualityMode = m_ui.qualityMode;
+        ImGui::RadioButton("Unfiltered RTXTF", (int*)&m_ui.aaMode, (int)AntiAliasingMode::None);
         ImGui::SameLine();
         ImGui::RadioButton("TAA", (int*)&m_ui.aaMode, (int)AntiAliasingMode::TAA);
 #if ENABLE_DLSS
         if (m_ui.dlssAvailable)
         {
             ImGui::SameLine();
-            ImGui::RadioButton("DLAA", (int*)&m_ui.aaMode, (int)AntiAliasingMode::DLAA);
-            ImGui::SameLine();
             ImGui::RadioButton("DLSS", (int*)&m_ui.aaMode, (int)AntiAliasingMode::DLSS);
+
+            {
+                IMGUI_SCOPED_DISABLE(m_ui.aaMode != AntiAliasingMode::DLSS);
+
+                ImGui::Combo("DLSS-SR mode", (int*)&m_ui.qualityMode, "Max Performance\0Balanced\0Max Quality\0Ultra Performance\0DLAA");
+
+                if (previousQualityMode != m_ui.qualityMode)
+                {
+                    m_ui.aaModeChanged = true;
+                }
+            }
         }
 #endif
+        if (previousAAMode != m_ui.aaMode)
+        {
+            m_ui.aaModeChanged = true;
+        }
         ImGui::Checkbox("Enable Animations", (bool*)&m_ui.enableAnimations);
-
 
         if (ImGui::Combo("Sampler Type", (int*)&m_ui.samplerType, "Hardware Sampler\0Stochastic Texture Filtering\0Split Screen\0"))
         {
@@ -168,7 +181,7 @@ void UserInterface::PostProcessSettings()
                 ImGui::Separator();
                 ImGui::Text("Shader");
 
-                if (ImGui::Combo("Pipeline Type", (int*)&m_ui.stfPipelineType, "RayGen(TraceRay)\0Compute(TraceRayInline)\0"))
+                if (ImGui::Combo("Pipeline Type", (int*)&m_ui.stfPipelineType, "RayGen(TraceRay)\0Compute(TraceRayInline)\0Raster\0"))
                 {
                     m_ui.stfPipelineUpdate = true;
                 }

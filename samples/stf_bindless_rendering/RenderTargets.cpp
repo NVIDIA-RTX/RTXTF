@@ -15,12 +15,12 @@
 using namespace dm;
 using namespace donut;
 
-RenderTargets::RenderTargets(nvrhi::IDevice* device, int2 size)
-    : Size(size)
+RenderTargets::RenderTargets(nvrhi::IDevice* device, int2 dlssInputSize, int2 dlssOutputSize)
+    : Size(dlssInputSize)
 {
     nvrhi::TextureDesc desc;
-    desc.width = size.x;
-    desc.height = size.y;
+    desc.width = dlssInputSize.x;
+    desc.height = dlssInputSize.y;
     desc.keepInitialState = true;
 
     // Render targets
@@ -63,19 +63,19 @@ RenderTargets::RenderTargets(nvrhi::IDevice* device, int2 size)
     desc.debugName = "DeviceDepthUAV";
     DeviceDepthUAV = device->createTexture(desc);
 
-    desc.format = nvrhi::Format::R32_UINT;
+    desc.format = nvrhi::Format::SRGBA8_UNORM;
     desc.debugName = "GBufferDiffuseAlbedo";
     GBufferDiffuseAlbedo = device->createTexture(desc);
     desc.debugName = "PrevGBufferDiffuseAlbedo";
     PrevGBufferDiffuseAlbedo = device->createTexture(desc);
 
-    desc.format = nvrhi::Format::R32_UINT;
+    desc.format = nvrhi::Format::SRGBA8_UNORM;
     desc.debugName = "GBufferSpecularRough";
     GBufferSpecularRough = device->createTexture(desc);
     desc.debugName = "PrevGBufferSpecularRough";
     PrevGBufferSpecularRough = device->createTexture(desc);
 
-    desc.format = nvrhi::Format::R32_UINT;
+    desc.format = nvrhi::Format::RGBA16_SNORM;
     desc.debugName = "GBufferNormals";
     GBufferNormals = device->createTexture(desc);
     desc.debugName = "PrevGBufferNormals";
@@ -100,8 +100,13 @@ RenderTargets::RenderTargets(nvrhi::IDevice* device, int2 size)
     MotionVectors = device->createTexture(desc);
 
     desc.format = nvrhi::Format::RGBA16_FLOAT;
+    desc.width = dlssOutputSize.x;
+    desc.height = dlssOutputSize.y;
     desc.debugName = "ResolvedColor";
     ResolvedColor = device->createTexture(desc);
+
+    desc.width = dlssInputSize.x;
+    desc.height = dlssInputSize.y;
 
     desc.format = nvrhi::Format::RGBA16_FLOAT;
     desc.debugName = "ReferenceColor";
@@ -140,6 +145,7 @@ RenderTargets::RenderTargets(nvrhi::IDevice* device, int2 size)
 
     desc.format = nvrhi::Format::RGBA16_FLOAT;
     desc.debugName = "HdrColor";
+    desc.clearValue = 0.0;
     HdrColor = device->createTexture(desc);
 
     desc.format = nvrhi::Format::RGBA16_SNORM;
