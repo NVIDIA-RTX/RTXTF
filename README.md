@@ -19,7 +19,7 @@ Filter types supported for Texture2D, Texture2DArray, TextureCube, Texture3D:
 |----------------------------|---------------------------------------------|
 |[/docs][docs]               |_Documentation for showcased tech_           |
 |[/donut][donut]             |_Framework used for the samples_             |
-|[/assets][assets]             |_Assets and scene definitions_               |
+|[/assets][assets]           |_Assets and scene definitions_               |
 |[/sample][sample]           |_Sample showcasing usage of RTXTF-Library    |
 
 ## Getting up and running
@@ -44,18 +44,22 @@ Use the following BibTex entry to cite the usage of RTXTF in published research:
 }
 ```
 
+## Collaborative Texture Filtering techniques to improve Magnification of Stochastic Texture Filtering
+
+![CTF](docs/images/CTF.png)
+
+Read the paper for more details about improvements to magnification with CTF
+https://research.nvidia.com/labs/rtr/publication/akeninemoller2025collaborative/collaborative_texfilt.pdf
+
 ## Known Issues
 
 - Be cautious when implementing RTXTF with volumetrics, decals, alpha maps, noise textures or look up tables because they can lead to unexpected results.
 ![Volumetrics](docs/images/Volumetrics.png)
-- Alpha tested shadows with RTXTF can introduce unwanted noise in the penumbra.
+- Alpha tested materials can be problematic for shadows so it is disabled in the RTXTF SDK.
 - Using RTXTF with offscreen render targets like Shadow Maps or Cube Maps will not accumulate enough samples to be properly denoised by DLSS.
-- We recommend using quad 2x2 wave intrinsics as a method to reduce lighting artifacts if they are present.
+- We recommend using CTF Min Max Version 2 as a method to reduce lighting artifacts at the cost of some performance.
 - RTXTF requires DLSS to resolve the noise that RTXTF generates.  Any RTXTF methods performed after DLSS will be noisy.
 - Making RTXTF optional with regular HW filtering can lead to additional shader permutations having to be added.
-- When DLSS-SR is in upscaling mode there can be undesirable noise in the output in some cases.
-- DLSS-SR upscaling under extreme magnification will experience noise that may have trouble denoising/converging.
-![Magnification](docs/images/MagnificationNoise.png)
 
 ## Support
 

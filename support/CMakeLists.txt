@@ -42,6 +42,20 @@ endif ()
 set(STF_SHADER_INCLUDE_DIR "${CMAKE_SOURCE_DIR}")
 
 test_compile_shaders(
+    TARGET ${project}_dxc_2021_sm6_7
+    CONFIG ${CMAKE_CURRENT_SOURCE_DIR}/shaders_dxc.cfg
+    SOURCES ${shaders}
+    FOLDER ${folder}
+    INCLUDE_DIR ${STF_SHADER_INCLUDE_DIR}
+    COMPILER_OPTIONS_DXIL "--hlsl2021 --shaderModel=6_7"
+    COMPILER_OPTIONS_SPIRV "--hlsl2021 --shaderModel=6_7"
+    COMPILER_PATH_DXIL ${DXC_PATH}
+    COMPILER_PATH_SPIRV ${DXC_SPIRV_PATH}
+    DXIL ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/shaders/${project}_dxc_2021_sm6_7/dxil
+    SPIRV_DXC ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/shaders/${project}_dxc_2021_sm6_7/spirv
+)
+
+test_compile_shaders(
     TARGET ${project}_dxc_2021_sm6_6
     CONFIG ${CMAKE_CURRENT_SOURCE_DIR}/shaders_dxc.cfg
     SOURCES ${shaders}

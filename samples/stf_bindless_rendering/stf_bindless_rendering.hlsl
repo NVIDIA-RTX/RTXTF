@@ -19,17 +19,18 @@
 #include <donut/shaders/scene_material.hlsli>
 #include "lighting_cb.h"
 #include "rng.hlsli"
+#include "stf_debug.hlsli"
 
 #include "../../libraries/RTXTF-Library/STFSamplerState.hlsli"
 
-struct RayPayload
+struct [raypayload] RayPayload
 {
-    float committedRayT;
-    uint instanceID;
-    uint primitiveIndex;
-    uint geometryIndex;
-    float2 barycentrics;
-    uint2 pixelPosition;
+    float committedRayT : read(caller) : write(closesthit, miss);
+    uint instanceID : read(caller) : write(caller, closesthit);
+    uint primitiveIndex : read(caller) : write(closesthit, miss);
+    uint geometryIndex : read(caller) : write(closesthit, miss);
+    float2 barycentrics : read(caller) : write(closesthit, miss);
+    uint2 pixelPosition : read(anyhit) : write(caller);
 };
 
 ConstantBuffer<LightingConstants> g_Const : register(b0);
@@ -236,13 +237,15 @@ MaterialSample sampleGeometryMaterial(
     samplerState.SetFilterType(g_Const.stfFilterMode);
     samplerState.SetFrameIndex(g_Const.stfFrameIndex);
     samplerState.SetMagMethod(g_Const.stfMagnificationMethod);
+    samplerState.SetFallbackMethod(g_Const.stfFallbackMethod);
     samplerState.SetAddressingModes(g_Const.stfAddressMode.xxx);
     samplerState.SetSigma(g_Const.stfSigma);
     samplerState.SetAnisoMethod(g_Const.stfMinificationMethod);
     samplerState.SetReseedOnSample(g_Const.stfReseedOnSample);
+    samplerState.SetDebugFailure(g_Const.stfDebugOnFailure);
     
 #if STF_ENABLED
-    bool stfEnabled = true;
+    bool stfEnabled = true && (gs.material.domain != MaterialDomain_AlphaTested);
     if (g_Const.stfSplitScreen && pixelPosition.x > (g_Const.view.viewportSize.x / 2.f))
     {
         stfEnabled = false;
@@ -431,22 +434,6 @@ float3 shadeSurface(
     return diffuseTerm + specularTerm + (ms.diffuseAlbedo + ms.specularF0) * g_Const.ambientColor.rgb;
 }
 
-float4 GetCividis(int index, int min, int max)
-{
-    const float t = (float)index / (max - min);
-
-    const float t2 = t * t;
-    const float t3 = t2 * t;
-    
-    float4 color;
-    color.r = 0.8688 * t3 - 1.5484 * t2 + 0.0081 * t + 0.2536;
-    color.g = 0.8353 * t3 - 1.6375 * t2 + 0.2351 * t + 0.8669;
-    color.b = 0.6812 * t3 - 1.0197 * t2 + 0.3935 * t + 0.8815;
-    color.a = 0.f;
-    
-    return color;
-}
-
 // Row-linear warp lane shuffle.
 // the global pixelPosition (SV_DispatchThreadID or DispatchRaysIndex())
 // will be adjusted so that the threads within a warp are laid out the following way:
@@ -531,8 +518,9 @@ void main(uint2 pixelPosition)
 
     u_Output[pixelPosition] = float4(shadeSurface(pixelPosition, payload, ray.Direction), 0);
     
-    if (g_Const.stfDebugVisualizeLanes)
+    float4 debugColor;
+    if (GetWaveVizMode(g_Const.stfDebugVisualizeLanes, pixelPosition, debugColor))
     {
-        u_Output[pixelPosition] = GetCividis(WaveGetLaneIndex(), 0, WaveGetLaneCount());
+        u_Output[pixelPosition] = debugColor;
     }
 }

@@ -8,7 +8,7 @@
 
 
 include(../../external/donut/compileshaders.cmake)
-file(GLOB shaders "*.hlsl")
+file(GLOB shaders "*.hlsl" "*.hlsli")
 file(GLOB sources "*.cpp" "*.h")
 
 set(project stf_bindless_rendering)
@@ -17,6 +17,8 @@ set(folder "Samples/STF Bindless Rendering")
 donut_compile_shaders(
     TARGET ${project}_shaders
     CONFIG ${CMAKE_CURRENT_SOURCE_DIR}/shaders.cfg
+	SHADERMAKE_OPTIONS_DXIL "--hlsl2021 --shaderModel=6_7"
+    SHADERMAKE_OPTIONS_SPIRV "--hlsl2021 --shaderModel=6_7"
     SOURCES ${shaders}
     FOLDER ${folder}
     DXIL ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/shaders/${project}/dxil
@@ -28,6 +30,20 @@ add_executable(${project} WIN32 ${sources})
 target_link_libraries(${project} donut_render donut_app donut_engine)
 add_dependencies(${project} ${project}_shaders)
 set_target_properties(${project} PROPERTIES FOLDER ${folder})
+
+set(DONUT_D3D_AGILITY_SDK_URL "https://www.nuget.org/api/v2/package/Microsoft.Direct3D.D3D12/1.616.1")
+include("${PROJECT_SOURCE_DIR}/external/donut/cmake/FetchAgilitySDK.cmake")
+
+if(DONUT_D3D_AGILITY_SDK_ENABLED)
+    target_compile_definitions(${project} PUBLIC DONUT_D3D_AGILITY_SDK_ENABLED=1)
+    target_compile_definitions(${project} PUBLIC DONUT_D3D_AGILITY_SDK_VERSION=${DONUT_D3D_AGILITY_SDK_VERSION})
+    add_custom_command(TARGET ${project} POST_BUILD
+        COMMAND
+            ${CMAKE_COMMAND} -E make_directory "$<TARGET_FILE_DIR:${project}>/D3D12/"
+        COMMAND
+            ${CMAKE_COMMAND} -E copy_if_different ${DONUT_D3D_AGILITY_SDK_CORE_DLL} "$<TARGET_FILE_DIR:${project}>/D3D12/"
+    )
+endif()
 
 if (TARGET DLSS)
 	target_compile_definitions(${project} PRIVATE 

@@ -33,7 +33,11 @@
 #include <donut/shaders/motion_vectors.hlsli>
 #include <donut/shaders/forward_vertex.hlsli>
 #include <donut/shaders/binding_helpers.hlsli>
+#include "stf_debug.hlsli"
 
+#if ALLOW_HELPER_LANES == 1
+[WaveOpsIncludeHelperLanes]
+#endif
 void main(
     in float4 i_position : SV_Position,
 	in SceneVertex i_vtx,
@@ -41,9 +45,9 @@ void main(
     out float4 o_channel0 : SV_Target1,
     out float4 o_channel1 : SV_Target2,
     out float4 o_channel2 : SV_Target3,
-    out float4 o_channel3 : SV_Target4
+    out float4 o_channel3 : SV_Target5
 #if MOTION_VECTORS
-    , out float3 o_motion : SV_Target5
+    , out float3 o_motion : SV_Target6
 #endif
 )
 {
@@ -54,8 +58,8 @@ void main(
     {
         if (pixelPosition.x > 0.499f && pixelPosition.x < 0.501f)
         {
-            o_channel0 = float4(1, 0, 0, 0);
-            o_channel1 = float4(1, 0, 0, 0);
+            o_channel0 = float4(1, 0, 0, 1);
+            o_channel1 = float4(0, 0, 0, 0);
             o_channel2 = float4(1, 0, 0, 0);
             o_channel3 = float4(1, 0, 0, 0);
             return;
@@ -83,6 +87,19 @@ void main(
     o_channel2.w = surface.roughness;
     o_channel3.xyz = surface.emissiveColor;
     o_channel3.w = 0;
+
+    float4 debugColor;
+    if (GetWaveVizMode(g_Const.stfDebugVisualizeLanes, uint2(i_position.xy), debugColor))
+    {
+        o_channel0.xyz = 0;
+        o_channel0.w = 0;
+        o_channel1.xyz = 0;
+        o_channel1.w = 0;
+        o_channel2.xyz = float3(1,0,0);
+        o_channel2.w = 0;
+        o_channel3.xyz = debugColor.xyz;
+        o_channel3.w = 0;
+    }
 
 #if MOTION_VECTORS
     o_motion = GetMotionVector(i_position.xyz, i_vtx.prevPos, g_Const.view, g_Const.viewPrev);

@@ -150,10 +150,12 @@ void InitSTF(inout STF_SamplerState stfSamplerState, uint2 pixelPosition)
     stfSamplerState.SetFilterType(g_Const.stfFilterMode);
     stfSamplerState.SetFrameIndex(g_Const.stfFrameIndex);
     stfSamplerState.SetMagMethod(g_Const.stfMagnificationMethod);
+    stfSamplerState.SetFallbackMethod(g_Const.stfFallbackMethod);
     stfSamplerState.SetAddressingModes(g_Const.stfAddressMode.xxx);
     stfSamplerState.SetSigma(g_Const.stfSigma);
     stfSamplerState.SetAnisoMethod(g_Const.stfMinificationMethod);
     stfSamplerState.SetReseedOnSample(g_Const.stfReseedOnSample);
+    stfSamplerState.SetDebugFailure(g_Const.stfDebugOnFailure);
 }
 
 MaterialTextureSample SampleMaterialTextures(float2 texCoord, float2 normalTexCoordScale, float2 pixelPosition)
@@ -164,7 +166,7 @@ MaterialTextureSample SampleMaterialTextures(float2 texCoord, float2 normalTexCo
     InitSTF(stfSamplerState, pixelPosition);
 
 #if STF_ENABLED
-    bool stfEnabled = true;
+    bool stfEnabled = true && g_Material.domain != MaterialDomain_AlphaTested;
     if (g_Const.stfSplitScreen && pixelPosition.x > (g_Const.view.viewportSize.x / 2.f))
     {
         stfEnabled = false;

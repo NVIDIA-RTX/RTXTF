@@ -68,8 +68,21 @@ enum class StfMagMethod
     Filter2x2FineTemporal,
     Filter3x3FineAlu,
     Filter3x3FineLut,
-	Filter4x4Fine,
-    Wave
+    Filter4x4Fine,
+    MinMax,
+    MinMaxHelper,
+    MinMaxV2,
+    MinMaxV2Helper,
+    Mask,
+    Mask2,
+    Count,
+};
+
+enum class StfFallbackMethod
+{
+    BL1STFILTER_FAST,
+    Debug,
+    Count
 };
 
 enum class StfMinMethod
@@ -170,21 +183,24 @@ struct UIData
     bool stfFreezeFrameIndex = false;
 
     SamplerType samplerType = SamplerType::STF;
-    bool stfLoad = false;
+    bool stfLoad = true;
+    bool allowHelperLanesInWaveIntrinsics = false;
     StfFilterMode stfFilterMode = StfFilterMode::Linear;
-    StfMagMethod stfMagnificationMethod = StfMagMethod::Filter2x2Quad;
+    StfMagMethod stfMagnificationMethod = StfMagMethod::MinMaxV2;
+    StfFallbackMethod stfFallbackMethod = StfFallbackMethod::BL1STFILTER_FAST;
     StfMinMethod stfMinificationMethod = StfMinMethod::Aniso;
     float stfMipLevelOverride = 0.f;
     StfAddressMode stfAddressMode = StfAddressMode::SameAsSampler;
     float stfSigma = 0.7f;
     bool stfReseedOnSample = false;
     bool stfUseWhiteNoise = false;
+    bool stfDebugOnFailure = false;
     float resolutionScale = 1.f;
 
     StfPipelineType stfPipelineType = StfPipelineType::Compute;
     StfThreadGroupSize stfGroupSize = StfThreadGroupSize::_8x8;
     StfWaveLaneLayout stfWaveLaneLayoutOverride = StfWaveLaneLayout::None;
-    bool stfDebugVisualizeLanes = false;
+    int stfDebugVisualizeLanes = 0;
 
     bool enableFpsLimit = true;
     uint32_t fpsLimit = 60;

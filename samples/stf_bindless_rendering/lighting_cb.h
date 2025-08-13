@@ -28,18 +28,20 @@ struct LightingConstants
     uint stfFilterMode;
     uint stfMagnificationMethod;
 
+    uint stfFallbackMethod;
     uint stfMinificationMethod;
     uint stfUseMipLevelOverride;
     float stfMipLevelOverride;
-    uint stfAddressMode;
 
+    uint stfAddressMode;
     float stfSigma;
     uint stfWaveLaneLayoutOverride;
     uint stfReseedOnSample;
-    uint stfUseWhiteNoise;
 
+    uint stfUseWhiteNoise;
+    uint stfDebugOnFailure;
     uint stfDebugVisualizeLanes;
-    uint3 pad;
+    uint pad;
 };
 
 #endif // LIGHTING_CB_H

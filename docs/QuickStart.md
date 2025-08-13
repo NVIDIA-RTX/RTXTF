@@ -35,6 +35,8 @@ The stf_bindless_rendering sample demonstrates a simple ray traced application t
 	 Techniques visualized below are respectively: default filtering after shading, 2x2 quad, 2x2 fine, 2x2 fine temporal, 3x3 fine and 4x4 fine methods.<br/>
 	![Default Mag Method](images/defaultMagMethod.png) | ![2x2 Quad Mag Method](images/2x2QuadMagMethod.png) | ![2x2 Fine Mag Method](images/2x2FineMagMethod.png)
 	![2x2 Fine Temporal Mag Method](images/2x2FineTemporalMagMethod.png) | ![3x3 Fine ALU Mag Method](images/3x3FineALUMagMethod.png) | ![4x4 Fine Mag Method](images/4x4FineMagMethod.png)
+	Collaborative Texture Filtering has significantly improved magnification.  These new techniques are called MinMaxV1, MinMaxV2 and Mask methods.  The image below illustrates the progression of magnification methods using CTF variants.<br/>
+	![CTF2](images/CTF.png)
   6. Sigma is for the Gaussian filter.<br/>
   7. Minification methods include Aniso, ForceNegInf, ForcePosInf, ForceNan and ForceCustom.<br/>
   8. Custom Mip level is associated with ForceCustom in Minification methods.<br/>

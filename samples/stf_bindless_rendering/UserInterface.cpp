@@ -147,6 +147,14 @@ void UserInterface::PostProcessSettings()
                     m_ui.stfPipelineUpdate = true;
                 }
 
+                {
+                    IMGUI_SCOPED_DISABLE(m_ui.stfPipelineType != StfPipelineType::Raster);
+                    if (ImGui::Checkbox("Allow Helper Lanes In Wave Intrinsics", (bool*)&m_ui.allowHelperLanesInWaveIntrinsics))
+                    {
+                        m_ui.stfPipelineUpdate = true;
+                    }
+                }
+
                 ImGui::Combo("Filter Type", (int*)&m_ui.stfFilterMode, "Linear\0Cubic\0Gaussian\0");
 
                 {
@@ -154,10 +162,41 @@ void UserInterface::PostProcessSettings()
                     ImGui::Combo("Address Mode", (int*)&m_ui.stfAddressMode, "Same as sampler\0Clamp\0Wrap\0");
                 }
 
-                ImGui::Combo("Magnification Method", (int*)&m_ui.stfMagnificationMethod, "Default\0 2x2 Quad\0 2x2 Fine\0 2x2 Fine temporal\0 3x3 Fine ALU\0 3x3 Fine LUT\0 4x4 Fine");
-                ShowHelpMarker("Quad Comms: Enable groups of 2x2 pixel quads or threads in a CS to share texture samples. This typically improves reconstruction of high-frequency details during magnification");
-                ShowHelpMarker("Wave Read Lane: Enable groups of 8 threads in a warp to share texture samples. This typically improves reconstruction of high-frequency details during magnification");
-                ShowHelpMarker("Wave Read Lane Sliding Window: Enable groups of 8 threads in a warp to share texture samples in a sliding window to decorelate samples for DLSS. This typically improves reconstruction of high-frequency details during magnification");
+                {
+                    static_assert((int)StfMagMethod::Count == 13);
+                    static const char* items[(int)StfMagMethod::Count] =
+                    {
+                        "Default",
+                        "Quad 2x2",
+                        "Fine 2x2",
+                        "Fine temporal 2x2",
+                        "Fine ALU 3x3",
+                        "Fine LUT 3x3",
+                        "Fine 4x4",
+                        "MinMax",
+                        "MinMaxHelper",
+                        "MinMax2",
+                        "MinMax2Helper",
+                        "Mask",
+                        "Mask2",
+                    };
+
+                    ImGui::Combo("Magnification Method", (int*)&m_ui.stfMagnificationMethod, items, (int)StfMagMethod::Count);
+                    ShowHelpMarker("Quad Comms: Enable groups of 2x2 pixel quads or threads in a CS to share texture samples. This typically improves reconstruction of high-frequency details during magnification");
+                    ShowHelpMarker("Wave Read Lane: Enable groups of 8 threads in a warp to share texture samples. This typically improves reconstruction of high-frequency details during magnification");
+                    ShowHelpMarker("Wave Read Lane Sliding Window: Enable groups of 8 threads in a warp to share texture samples in a sliding window to decorelate samples for DLSS. This typically improves reconstruction of high-frequency details during magnification");
+                }
+                
+                {
+                    static_assert((int)StfFallbackMethod::Count == 2);
+                    static const char* items[(int)StfFallbackMethod::Count] =
+                    {
+                        "BL1STFILTER_FAST",
+                        "Debug",
+                    };
+
+                    ImGui::Combo("Fallback Method", (int*)&m_ui.stfFallbackMethod, items, (int)StfFallbackMethod::Count);
+                }
 
                 {
                     IMGUI_SCOPED_DISABLE(m_ui.stfFilterMode != StfFilterMode::Gaussian);
@@ -195,8 +234,9 @@ void UserInterface::PostProcessSettings()
                     }
                 }
 
+                ImGui::Checkbox("Debug Failure", (bool*)&m_ui.stfDebugOnFailure);
                 ImGui::Combo("Lane Warp Layout", (int*)&m_ui.stfWaveLaneLayoutOverride, "None\0Row Linear 16x2\0Quad-Z 16x2\0");
-                ImGui::Checkbox("Lane debug viz", (bool*)&m_ui.stfDebugVisualizeLanes);
+                ImGui::Checkbox("Lane Debug viz", (bool*)&m_ui.stfDebugVisualizeLanes);
             }
 
             if (ImGui::Button("Recreate shader pipelines"))

@@ -50,6 +50,11 @@ using namespace donut::app;
 
 static const char* g_WindowTitle = "Donut Example: RTX Texture Filtering";
 
+#ifdef DONUT_D3D_AGILITY_SDK_ENABLED
+    extern "C" { __declspec(dllexport) extern const UINT D3D12SDKVersion = DONUT_D3D_AGILITY_SDK_VERSION;}
+    extern "C" { __declspec(dllexport) extern const char* D3D12SDKPath = ".\\D3D12\\"; }
+#endif
+
 // Override GBuffer shaders
 class GBufferFillPassWithSTF : public GBufferFillPass
 {
@@ -84,6 +89,7 @@ protected:
         PixelShaderMacros.push_back(ShaderMacro("STF_LOAD", m_ui->stfLoad == true ? "1" : "0"));
         PixelShaderMacros.push_back(ShaderMacro("MOTION_VECTORS", params.enableMotionVectors ? "1" : "0"));
         PixelShaderMacros.push_back(ShaderMacro("ALPHA_TESTED", alphaTested ? "1" : "0"));
+        PixelShaderMacros.push_back(ShaderMacro("ALLOW_HELPER_LANES", m_ui->allowHelperLanesInWaveIntrinsics ? "1" : "0"));
 
         return shaderFactory.CreateAutoShader("app/gbuffer_stf_ps.hlsl", "main", DONUT_MAKE_PLATFORM_SHADER(g_gbuffer_stf_ps), &PixelShaderMacros, nvrhi::ShaderType::Pixel);
     }
@@ -793,6 +799,23 @@ public:
             case StfMagMethod::Filter3x3FineAlu: return STF_MAGNIFICATION_METHOD_3x3_FINE_ALU;
             case StfMagMethod::Filter3x3FineLut: return STF_MAGNIFICATION_METHOD_3x3_FINE_LUT;
             case StfMagMethod::Filter4x4Fine: return STF_MAGNIFICATION_METHOD_4x4_FINE;
+            case StfMagMethod::MinMax: return STF_MAGNIFICATION_METHOD_MIN_MAX;
+            case StfMagMethod::MinMaxHelper: return STF_MAGNIFICATION_METHOD_MIN_MAX_HELPER;
+            case StfMagMethod::MinMaxV2: return STF_MAGNIFICATION_METHOD_MIN_MAX_V2;
+            case StfMagMethod::MinMaxV2Helper: return STF_MAGNIFICATION_METHOD_MIN_MAX_V2_HELPER;
+            case StfMagMethod::Mask: return STF_MAGNIFICATION_METHOD_MASK;
+            case StfMagMethod::Mask2: return STF_MAGNIFICATION_METHOD_MASK2;
+            default:
+                assert(!"Not Implemented");
+                return 0;
+            }
+        };
+
+        auto GetFallbackMagMode = [](StfFallbackMethod mode)->int {
+            switch (mode)
+            {
+            case StfFallbackMethod::BL1STFILTER_FAST: return STF_MAGNIFICATION_FALLBACK_METHOD_BL1STFILTER_FAST;
+            case StfFallbackMethod::Debug: return STF_MAGNIFICATION_FALLBACK_METHOD_DEBUG;
             default:
                 assert(!"Not Implemented");
                 return 0;
@@ -839,6 +862,7 @@ public:
         constants.stfFrameIndex = m_ui->stfFreezeFrameIndex ? m_FrameIndex : m_FrameIndex++;
         constants.stfFilterMode = GetStfRuntimeFilterMode(m_ui->stfFilterMode);
         constants.stfMagnificationMethod = GetStfMagMode(m_ui->stfMagnificationMethod);
+        constants.stfFallbackMethod = GetFallbackMagMode(m_ui->stfFallbackMethod);
         constants.stfMinificationMethod = m_ui->stfMinificationMethod == StfMinMethod::Aniso ? STF_ANISO_LOD_METHOD_DEFAULT : STF_ANISO_LOD_METHOD_NONE;
         constants.stfUseMipLevelOverride = m_ui->stfMinificationMethod != StfMinMethod::Aniso ? 1 : 0;
         constants.stfAddressMode = GetStfAddressMode(m_ui->stfAddressMode);
@@ -847,7 +871,8 @@ public:
         constants.stfWaveLaneLayoutOverride = (uint)m_ui->stfWaveLaneLayoutOverride;
         constants.stfReseedOnSample = (uint)m_ui->stfReseedOnSample;
         constants.stfUseWhiteNoise = (uint)m_ui->stfUseWhiteNoise;
-        constants.stfDebugVisualizeLanes = m_ui->stfDebugVisualizeLanes ? 1 : 0;
+        constants.stfDebugOnFailure = (uint)m_ui->stfDebugOnFailure;
+        constants.stfDebugVisualizeLanes = (uint)m_ui->stfDebugVisualizeLanes;
 
         m_View.FillPlanarViewConstants(constants.view);
         if (m_PreviousViewsValid)
