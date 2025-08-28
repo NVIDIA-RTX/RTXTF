@@ -44,11 +44,11 @@ Use the following BibTex entry to cite the usage of RTXTF in published research:
 }
 ```
 
-## Collaborative Texture Filtering techniques to improve Magnification of Stochastic Texture Filtering
+## Collaborative Texture Filtering
 
 ![CTF](docs/images/CTF.png)
 
-Read the paper for more details about improvements to magnification with CTF
+Collaborative Texture Filtering (CTF) is a new technique to improve magnification quality of Stochastic Texture Filtering. For complete details on how CTF improves magnification quality, please read the research paper here:
 https://research.nvidia.com/labs/rtr/publication/akeninemoller2025collaborative/collaborative_texfilt.pdf
 
 ## Known Issues
