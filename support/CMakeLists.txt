@@ -32,11 +32,16 @@ function(CheckAndDownloadPackage NAME VERSION LOCAL_PATH URL)
     endif()
 endfunction()
 
-CheckAndDownloadPackage("Slang" "v2024.9.2" ${CMAKE_SOURCE_DIR}/external/Slang https://github.com/shader-slang/slang/releases/download/v2024.9.2/slang-2024.9.2-windows-x86_64.zip)
+if (STF_ARM64)
+    # v2024.9.2 has no Windows ARM64 package; 2024.11 is the first with windows-aarch64.
+    CheckAndDownloadPackage("Slang" "v2024.11" ${CMAKE_SOURCE_DIR}/external/Slang https://github.com/shader-slang/slang/releases/download/v2024.11/slang-2024.11-windows-aarch64.zip)
+else()
+    CheckAndDownloadPackage("Slang" "v2024.9.2" ${CMAKE_SOURCE_DIR}/external/Slang https://github.com/shader-slang/slang/releases/download/v2024.9.2/slang-2024.9.2-windows-x86_64.zip)
+endif()
 
 find_program (SLANG_PATH "${CMAKE_SOURCE_DIR}/external/Slang/bin/slangc")
 if (NOT SLANG_PATH)
-    message (FATAL_ERROR "Can't find Slang in repo: ${WINDOWS_SDK_BIN}")
+    message (FATAL_ERROR "Can't find slangc under ${CMAKE_SOURCE_DIR}/external/Slang/bin")
 endif ()
 
 set(STF_SHADER_INCLUDE_DIR "${CMAKE_SOURCE_DIR}")

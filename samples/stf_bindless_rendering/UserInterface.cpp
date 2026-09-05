@@ -39,8 +39,6 @@
 #include <donut/app/UserInterfaceUtils.h>
 #include <donut/core/json.h>
 
-#include <json/writer.h>
-
 using namespace donut;
 
 UIData::UIData()
@@ -101,7 +99,9 @@ void UserInterface::PostProcessSettings()
         ImGui::Text("Post-Processing");
 
         AntiAliasingMode previousAAMode = m_ui.aaMode;
+#if ENABLE_DLSS
         DLSSQualityModes previousQualityMode = m_ui.qualityMode;
+#endif
         ImGui::RadioButton("Unfiltered RTXTF", (int*)&m_ui.aaMode, (int)AntiAliasingMode::None);
         ImGui::SameLine();
         ImGui::RadioButton("TAA", (int*)&m_ui.aaMode, (int)AntiAliasingMode::TAA);
@@ -132,6 +132,14 @@ void UserInterface::PostProcessSettings()
         if (ImGui::Combo("Sampler Type", (int*)&m_ui.samplerType, "Hardware Sampler\0Stochastic Texture Filtering\0Split Screen\0"))
         {
             m_ui.stfPipelineUpdate = true;
+        }
+
+        {
+            IMGUI_SCOPED_DISABLE(!GetStfOn(m_ui.samplerType));
+            if (ImGui::Checkbox("Enable Collaborative Texture Filtering", (bool*)&m_ui.enableCtfMagnify))
+            {
+                m_ui.stfPipelineUpdate = true;
+            }
         }
 
         {
@@ -225,17 +233,86 @@ void UserInterface::PostProcessSettings()
                     m_ui.stfPipelineUpdate = true;
                 }
 
+                // Quad/Fine wave-share methods only produce correct output with an 8-wide
+                // group + Row Linear 8x4 (their share offsets assume lane = x + y*8). On the
+                // compute path we steer to that config and grey out everything that can't work.
+                const bool laneLayoutApplicable =
+                    GetStfOn(m_ui.samplerType)
+                    && m_ui.stfPipelineType == StfPipelineType::Compute
+                    && StfIsWaveShareMagMethod(m_ui.stfMagnificationMethod);
+
+                if (laneLayoutApplicable)
+                {
+                    if (!StfIs8WideGroup(m_ui.stfGroupSize))
+                    {
+                        m_ui.stfGroupSize = StfThreadGroupSize::_8x8;
+                        m_ui.stfPipelineUpdate = true;
+                    }
+                    m_ui.stfWaveLaneLayoutOverride = StfWaveLaneLayout::RowLinear8x4;
+                }
+                else if (!StfIsLaneLayoutValidForGroup(m_ui.stfWaveLaneLayoutOverride, m_ui.stfGroupSize))
+                {
+                    // Non-wave-share methods: just keep the remap bijective (no stale pixels).
+                    m_ui.stfWaveLaneLayoutOverride = StfIs8WideGroup(m_ui.stfGroupSize)
+                        ? StfWaveLaneLayout::RowLinear8x4
+                        : StfWaveLaneLayout::None;
+                }
+
                 {
                     IMGUI_SCOPED_DISABLE(m_ui.stfPipelineType != StfPipelineType::Compute);
                     static_assert(sizeof(m_ui.stfGroupSize) == sizeof(int));
-                    if (ImGui::Combo("Thread Group Size", (int*)&m_ui.stfGroupSize, " 8x8\0 16x8\0 8x16\0 16x16\0"))
+                    static const char* const kGroupNames[] = { " 8x8", " 16x8", " 8x16", " 16x16" };
+                    if (ImGui::BeginCombo("Thread Group Size", kGroupNames[(int)m_ui.stfGroupSize]))
                     {
-                        m_ui.stfPipelineUpdate = true;
+                        for (int i = 0; i < (int)(sizeof(kGroupNames) / sizeof(kGroupNames[0])); i++)
+                        {
+                            const StfThreadGroupSize group = (StfThreadGroupSize)i;
+                            // Quad/Fine require an 8-wide group; grey the 16-wide options for them.
+                            const bool usable = !laneLayoutApplicable || StfIs8WideGroup(group);
+                            const bool selected = ((int)m_ui.stfGroupSize == i);
+
+                            ImGui::BeginDisabled(!usable);
+                            if (ImGui::Selectable(kGroupNames[i], selected))
+                            {
+                                m_ui.stfGroupSize = group;
+                                m_ui.stfPipelineUpdate = true;
+                            }
+                            if (selected)
+                                ImGui::SetItemDefaultFocus();
+                            ImGui::EndDisabled();
+                        }
+                        ImGui::EndCombo();
                     }
                 }
 
                 ImGui::Checkbox("Debug Failure", (bool*)&m_ui.stfDebugOnFailure);
-                ImGui::Combo("Lane Warp Layout", (int*)&m_ui.stfWaveLaneLayoutOverride, "None\0Row Linear 16x2\0Quad-Z 16x2\0");
+
+                {
+                    IMGUI_SCOPED_DISABLE(!laneLayoutApplicable);
+
+                    static const char* const kLaneLayoutNames[] = { "None", "Row Linear 16x2", "Quad-Z 16x2", "Row Linear 8x4" };
+                    if (ImGui::BeginCombo("Lane Warp Layout", kLaneLayoutNames[(int)m_ui.stfWaveLaneLayoutOverride]))
+                    {
+                        for (int i = 0; i < (int)(sizeof(kLaneLayoutNames) / sizeof(kLaneLayoutNames[0])); i++)
+                        {
+                            const StfWaveLaneLayout layout = (StfWaveLaneLayout)i;
+                            // Only the layout that produces correct output for this method is selectable.
+                            const bool usable = StfIsLaneLayoutUsable(layout, m_ui.stfMagnificationMethod, m_ui.stfGroupSize);
+                            const bool selected = ((int)m_ui.stfWaveLaneLayoutOverride == i);
+
+                            ImGui::BeginDisabled(!usable);
+                            if (ImGui::Selectable(kLaneLayoutNames[i], selected))
+                            {
+                                m_ui.stfWaveLaneLayoutOverride = layout;
+                            }
+                            if (selected)
+                                ImGui::SetItemDefaultFocus();
+                            ImGui::EndDisabled();
+                        }
+                        ImGui::EndCombo();
+                    }
+                }
+
                 ImGui::Checkbox("Lane Debug viz", (bool*)&m_ui.stfDebugVisualizeLanes);
             }
 

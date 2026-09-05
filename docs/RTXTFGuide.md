@@ -3,7 +3,7 @@
 ## API functions
 
 ### Noise Functions:
-[Random Number Generation Header File][RNG]
+[Random Number Generation Header File](../samples/stf_bindless_rendering/rng.hlsli)
 
 Three helper functions that generate different noise variants that return 3 random values.
 
@@ -38,95 +38,6 @@ Simply include RTXTF-Library/STFSamplerState.hlsli into your shader to include a
 **2.** STFMacros.hlsli allows certain functionality to be available based on shader stages and shader language.<br/>
 **3.** STFSampleStateImpl.hlsli contains the implementation details of the interface.<br/>
 **4.** STFSamplerState.hlsli acts as the interface function table.<br/>
-	
-### RTXTF Interface functions in STFSamplerState.hlsli
-
-```C++
-// u - Uniform random number(s) Format: 2D(Array) tex : [u, v, (slice), mip], 3D tex : [u, v, w, mip]
-// If 
-static STF_SamplerState Create(float4 u) {
-	STF_SamplerState s;
-	s.m_impl = STF_SamplerStateImpl::_Create(u);
-	return s;
-}
-
-STF_MUTATING void SetUniformRandom(float4 u)                 { m_impl.m_u = u; }                               /* Uniform random numbers, 2D(Array) tex : [u, v, (slice), mip], 3D tex : [u, v, w, mip]  */
-STF_MUTATING void SetFilterType(uint filterType)             { m_impl.m_filterType = filterType; }             /*STF_FILTER_TYPE_*/
-STF_MUTATING void SetFrameIndex(uint frameIndex)             { m_impl.m_frameIndex = frameIndex; }             /* Frame index used to calculate odd / even frames for STF_MAGNIFICATION_METHOD_2x2_FINE_TEMPORAL)*/
-STF_MUTATING void SetAnisoMethod(uint anisoMethod)           { m_impl.m_anisoMethod = anisoMethod; }           /*STF_ANISO_LOD_METHOD_*/
-STF_MUTATING void SetMagMethod(uint magMethod)               { m_impl.m_magMethod = magMethod; }               /*STF_MAGNIFICATION_METHOD_*/
-STF_MUTATING void SetAddressingModes(uint3 addressingModes)  { m_impl.m_addressingModes = addressingModes; }   /*STF_ADDRESS_MODE_* - Only applied when using 'Load*/
-STF_MUTATING void SetSigma(float sigma)                      { m_impl.m_sigma = sigma; }
-STF_MUTATING void SetReseedOnSample(bool reseedOnSample)     { m_impl.m_reseedOnSample = reseedOnSample; }     /*Each sample will update the random numbers default: false*/
-STF_MUTATING void SetUserData(uint4 userData)                { m_impl.m_userData = userData; }
-
-float4 GetUniformRandom()         { return m_impl.m_u; }
-uint   GetFilterType()            { return m_impl.m_filterType; }           /*STF_FILTER_TYPE_*/
-uint   GetFrameIndex()            { return m_impl.m_frameIndex; }
-uint   GetAnisoMethod()           { return m_impl.m_anisoMethod; }          /*STF_ANISO_LOD_METHOD_*/
-uint   GetMagMethod()             { return m_impl.m_magMethod; }            /*STF_MAGNIFICATION_METHOD_*/
-uint3  GetAddressingModes()       { return m_impl.m_addressingModes; }      /*STF_ADDRESS_MODE_* - Only applied when using 'Load'*/ 
-float  GetSigma()                 { return m_impl.m_sigma; }
-bool   GetReseedOnSample()        { return m_impl.m_reseedOnSample; }       /*Each sample will update the random numbers*/
-uint4  GetUserData()              { return m_impl.m_userData; }
-
-// Texture2D with Texture and SamplerState objects, will use 'tex.Sample' internally
-STF_MUTATING float4 Texture2DSample(Texture2D tex, SamplerState s, float2 uv) { return m_impl._Texture2DSample(tex, s, uv); }
-STF_MUTATING float4 Texture2DSampleGrad(Texture2D tex, SamplerState s, float2 uv, float2 ddxUV, float2 ddyUV) { return m_impl._Texture2DSampleGrad(tex, s, uv, ddxUV, ddyUV); }
-STF_MUTATING float4 Texture2DSampleLevel(Texture2D tex, SamplerState s, float2 uv, float mipLevel) { return m_impl._Texture2DSampleLevel(tex, s, uv, mipLevel); }
-STF_MUTATING float4 Texture2DSampleBias(Texture2D tex, SamplerState s, float2 uv, float mipBias) { return m_impl._Texture2DSampleBias(tex, s, uv, mipBias); }
-
-// Texture2D with Texture objects, will use 'tex.Load' internally
-STF_MUTATING float4 Texture2DLoad(Texture2D tex, float2 uv) { return m_impl._Texture2DLoad(tex, uv); }
-STF_MUTATING float4 Texture2DLoadGrad(Texture2D tex, float2 uv, float2 ddxUV, float2 ddyUV) { return m_impl._Texture2DLoadGrad(tex, uv, ddxUV, ddyUV); }
-STF_MUTATING float4 Texture2DLoadLevel(Texture2D tex, float2 uv, float mipLevel) { return m_impl._Texture2DLoadLevel(tex, uv, mipLevel); }
-STF_MUTATING float4 Texture2DLoadBias(Texture2D tex, float2 uv, float mipBias) { return m_impl._Texture2DLoadBias(tex, uv, mipBias); }
-
-// Texture2D/Texture2DArray without Texture objects.
-// These functions return float3(x, y, lod) where (x, y) point at texel centers in UV space, lod is integer.
-// Note: use floor(f) to convert the sample positions to integer texel coordinates, not round(f).
-STF_MUTATING float3 Texture2DGetSamplePos(uint width, uint height, uint numberOfLevels, float2 uv) { return m_impl._Texture2DGetSamplePos(width, height, numberOfLevels, uv); }
-STF_MUTATING float3 Texture2DGetSamplePosGrad(uint width, uint height, uint numberOfLevels, float2 uv, float2 ddxUV, float2 ddyUV) { return m_impl._Texture2DGetSamplePosGrad(width, height, numberOfLevels, uv, ddxUV, ddyUV); }
-STF_MUTATING float3 Texture2DGetSamplePosLevel(uint width, uint height, uint numberOfLevels, float2 uv, float mipLevel) { return m_impl._Texture2DGetSamplePosLevel(width, height, numberOfLevels, uv, mipLevel); }
-STF_MUTATING float3 Texture2DGetSamplePosBias(uint width, uint height, uint numberOfLevels, float2 uv, float mipBias) { return m_impl._Texture2DGetSamplePosBias(width, height, numberOfLevels, uv, mipBias); }
-
-// Texture2DArray with Texture and SamplerState objects, will use 'tex.Sample' internally
-STF_MUTATING float4 Texture2DArraySample(Texture2DArray tex, SamplerState s, float3 uv) { return m_impl._Texture2DArraySample(tex, s, uv); }
-STF_MUTATING float4 Texture2DArraySampleGrad(Texture2DArray tex, SamplerState s, float3 uv, float3 ddxUV, float3 ddyUV) { return m_impl._Texture2DArraySampleGrad(tex, s, uv, ddxUV, ddyUV); }
-STF_MUTATING float4 Texture2DArraySampleLevel(Texture2DArray tex, SamplerState s, float3 uv, float mipLevel) { return m_impl._Texture2DArraySampleLevel(tex, s, uv, mipLevel); }
-STF_MUTATING float4 Texture2DArraySampleBias(Texture2DArray tex, SamplerState s, float3 uv, float mipBias) { return m_impl._Texture2DArraySampleBias(tex, s, uv, mipBias); }
-
-// Texture2DArray with Texture objects, will use 'tex.Load' internally
-STF_MUTATING float4 Texture2DArrayLoad(Texture2DArray tex, float3 uv) { return m_impl._Texture2DArrayLoad(tex, uv); }
-STF_MUTATING float4 Texture2DArrayLoadGrad(Texture2DArray tex, float3 uv, float3 ddxUV, float3 ddyUV) { return m_impl._Texture2DArrayLoadGrad(tex, uv, ddxUV, ddyUV); }
-STF_MUTATING float4 Texture2DArrayLoadLevel(Texture2DArray tex, float3 uv, float mipLevel) { return m_impl._Texture2DArrayLoadLevel(tex, uv, mipLevel); }
-STF_MUTATING float4 Texture2DArrayLoadBias(Texture2DArray tex, float3 uv, float mipBias) { return m_impl._Texture2DArrayLoadBias(tex, uv, mipBias); }
-
-// Texture3D with Texture and SamplerState objects, will use 'tex.Sample' internally
-STF_MUTATING float4 Texture3DSample(Texture3D tex, SamplerState s, float3 uv) { return m_impl._Texture3DSample(tex, s, uv); }
-STF_MUTATING float4 Texture3DSampleGrad(Texture3D tex, SamplerState s, float3 uv, float3 ddxUV, float3 ddyUV) { return m_impl._Texture3DSampleGrad(tex, s, uv, ddxUV, ddyUV); }
-STF_MUTATING float4 Texture3DSampleLevel(Texture3D tex, SamplerState s, float3 uv, float mipLevel) { return m_impl._Texture3DSampleLevel(tex, s, uv, mipLevel); }
-STF_MUTATING float4 Texture3DSampleBias(Texture3D tex, SamplerState s, float3 uv, float mipBias) { return m_impl._Texture3DSampleBias(tex, s, uv, mipBias); }
-
-// Texture3D with Texture objects, will use 'tex.Load' internally
-STF_MUTATING float4 Texture3DLoad(Texture3D tex, float3 uv) { return m_impl._Texture3DLoad(tex, uv); }
-STF_MUTATING float4 Texture3DLoadGrad(Texture3D tex, float3 uv, float3 ddxUV, float3 ddyUV) { return m_impl._Texture3DLoadGrad(tex, uv, ddxUV, ddyUV); }
-STF_MUTATING float4 Texture3DLoadLevel(Texture3D tex, float3 uv, float mipLevel) { return m_impl._Texture3DLoadLevel(tex, uv, mipLevel); }
-STF_MUTATING float4 Texture3DLoadBias(Texture3D tex, float3 uv, float mipBias) { return m_impl._Texture3DLoadBias(tex, uv, mipBias); }
-
-// Texture3D without Texture objects.
-// These functions return float4(x, y, z, lod) where (x, y, z) point at texel centers in UV space, lod is integer.
-STF_MUTATING float4 Texture3DGetSamplePos(uint width, uint height, uint depth, uint numberOfLevels, float3 uv) { return m_impl._Texture3DGetSamplePos(width, height, depth, numberOfLevels, uv); }
-STF_MUTATING float4 Texture3DGetSamplePosGrad(uint width, uint height, uint depth, uint numberOfLevels, float3 uv, float3 ddxUV, float3 ddyUV) { return m_impl._Texture3DGetSamplePosGrad(width, height, depth, numberOfLevels, uv, ddxUV, ddyUV); }
-STF_MUTATING float4 Texture3DGetSamplePosLevel(uint width, uint height, uint depth, uint numberOfLevels, float3 uv, float mipLevel) { return m_impl._Texture3DGetSamplePosLevel(width, height, depth, numberOfLevels, uv, mipLevel); }
-STF_MUTATING float4 Texture3DGetSamplePosBias(uint width, uint height, uint depth, uint numberOfLevels, float3 uv, float mipBias) { return m_impl._Texture3DGetSamplePosBias(width, height, depth, numberOfLevels, uv, mipBias); }
-
-// TextureCube with Texture and SamplerState objects, will use 'tex.Sample' internally.  Load variant isn't supported according to hlsl spec.  https://learn.microsoft.com/en-us/windows/win32/direct3dhlsl/texturecube
-STF_MUTATING float4 TextureCubeSample(TextureCube tex, SamplerState s, float3 uv) { return m_impl._TextureCubeSample(tex, s, uv); }
-STF_MUTATING float4 TextureCubeSampleGrad(TextureCube tex, SamplerState s, float3 uv, float3 ddxUV, float3 ddyUV) { return m_impl._TextureCubeSampleGrad(tex, s, uv, ddxUV, ddyUV); }
-STF_MUTATING float4 TextureCubeSampleLevel(TextureCube tex, SamplerState s, float3 uv, float mipLevel) { return m_impl._TextureCubeSampleLevel(tex, s, uv, mipLevel); }
-STF_MUTATING float4 TextureCubeSampleBias(TextureCube tex, SamplerState s, float3 uv, float mipBias) { return m_impl._TextureCubeSampleBias(tex, s, uv, mipBias); }
-```
 	
 ## Integrating RTXTF in the Sample Application
 
@@ -180,16 +91,41 @@ Note that the sampler wrap mode will be applied.
 float4 colorA = stf.Texture2DSample(textureA, sampleState, texCoord);
 float4 colorB = stf.Texture2DSample(textureB, sampleState, texCoord);
 
-// Alternatively, if not using a SamplerState (for custom buffer loads like Neural Texture Compression or other texture representations), use 
-a combination of *GetSamplePos* variants together with STF_ApplyAddressingMode
+// Alternatively, if not using a SamplerState (for custom buffer loads like Neural Texture Compression or other texture representations), use a combination of *GetSamplePos* variants together with STF_ApplyAddressingMode
 ```
+
+### Using Collaborative Texture Filtering
+
+Collaborative Texture Filtering is a technique for magnifying sampled texture values utilizing waves intrinsics. The implementation requires that all texture channels in a material are the same resolution. A concrete example is the function MagnifyTexturesCTF in the sample, in file [stf_bindless_rendering.hlsl](../samples/stf_bindless_rendering/stf_bindless_rendering.hlsl). The general usage pattern for CTF is displayed below:
+
+```C++
+// Create and initialize the STF_SamplerState as usual
+STF_SamplerState stf = ...
+
+...
+
+// Sample texture values without STF texture sample/load functions (they already apply magnification)
+float4 colorA = textureA.rgba;
+float4 colorB = textureB.rgba;
+float4 colorC = textureC.rgba;
+
+...
+
+// Set up magnification for the material texture
+STF_WaveLaneData waveData = stf.Tex2DSetupMagTexels(uv, samplePos, mipSizeX, mipSizeY);
+// Use the returned waveData struct to magnify texture values across different channels of the same material
+float4 magnifiedColorA = stf.Texture2DMagnifyTexels(colorA, waveData);
+float4 magnifiedColorB = stf.Texture2DMagnifyTexels(colorB, waveData);
+float4 magnifiedColorC = stf.Texture2DMagnifyTexels(colorC, waveData);
+```
+
+
+The struct STF_WaveLaneData is defined in [STFSamplerStateImpl.hlsli](../libraries/RTXTF-Library/STFSamplerStateImpl.hlsli).
+
+For cases of materials with multiple channels of the same size (diffuse, metallic/roughness, normal, etc) only a single call to Tex2DSetupMagTexels is needed. The returned STF_WaveLaneData struct is reusable across multiple subsequent Texture2DMagnifyTexels calls.
+
+There's a potential for neighboring lanes within the same wave to bleed texels from different materials. However, in practice CTF should get different magnification UVs for different materials. To further protect against potential texel bleeding a material ID check could be employed.
 
 ### Filter After Shading
 
 RTXTF provides a noisy output signal that must be filtered with a post shading accumulation pass.  We recommend DLSS-SR for low order filters such as Bilinear but recommend DLSS-RR for higher order filters such as Gaussian.
-
-### Misc/Future Work
-
-The RTXTF Shader Library can be extended to implement various types of stochastic sampling alogrithms including screen space techniques.  Currently that is out of scope for this simple shader library.
-
-[RNG]: examples/stf_bindless_rendering/rng.hlsli

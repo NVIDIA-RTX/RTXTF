@@ -27,6 +27,10 @@ Filter types supported for Texture2D, Texture2DArray, TextureCube, Texture3D:
 ### Prerequisites
 Any DXR GPU **|** [CMake v3.24.3][CMake] **|** [Vulkan SDK 1.3.268.0][VKSDK] **|** [VS 2022][VS22] **|** Windows SDK ≥ 10.0.20348.0 **|** Driver ≥ 555.85
 
+Supported OS: Windows 10/11 x64, Windows 11 ARM64.
+
+On Windows ARM64, install the Visual Studio 2022 ARM64 C++ build tools. DLSS/NGX is not available on this architecture; the sample builds with TAA only.
+
 ### Further steps
 - [Quick start guide][QuickStart] for building and running the RTXTF sample.
 - [RTXTF integration guide][RTXTFGuide].
@@ -59,6 +63,7 @@ https://research.nvidia.com/labs/rtr/publication/akeninemoller2025collaborative/
 - Using RTXTF with offscreen render targets like Shadow Maps or Cube Maps will not accumulate enough samples to be properly denoised by DLSS.
 - We recommend using CTF Min Max Version 2 as a method to reduce lighting artifacts at the cost of some performance.
 - RTXTF requires DLSS to resolve the noise that RTXTF generates.  Any RTXTF methods performed after DLSS will be noisy.
+- On Windows ARM64, DLSS is not available. The sample still builds and runs using TAA; STF will look noisier than on x64 with DLSS.
 - Making RTXTF optional with regular HW filtering can lead to additional shader permutations having to be added.
 
 ## Support

@@ -183,11 +183,27 @@ enum MaterialAttributes
     MatAttr_All          = 0x1F
 };
 
-float4 SampleTexture(inout STF_SamplerState stfSamplerState, bool stfEnabled, Texture2D texture, SamplerState materialSampler, float2 texCoord, float mipLevel)
+float4 SampleTexture(inout STF_SamplerState stfSamplerState, bool stfEnabled, bool ctfEnabled, Texture2D texture, SamplerState materialSampler, float2 texCoord, float mipLevel)
 {
 #if STF_ENABLED
     if (stfEnabled)
     {
+        #if CTF_ENABLED
+        if (ctfEnabled)
+        {
+            uint magMethodCached = stfSamplerState.GetMagMethod();
+            stfSamplerState.SetMagMethod(STF_MAGNIFICATION_METHOD_NONE);
+            float4 color;
+        #if STF_LOAD
+            color = stfSamplerState.Texture2DLoadLevel(texture, texCoord, mipLevel);
+        #else
+            color = stfSamplerState.Texture2DSampleLevel(texture, materialSampler, texCoord, mipLevel);
+        #endif
+            stfSamplerState.SetMagMethod(magMethodCached);
+            return color;
+        }
+        #endif
+
         #if STF_LOAD
             return stfSamplerState.Texture2DLoadLevel(texture, texCoord, mipLevel);
         #else
@@ -200,11 +216,27 @@ float4 SampleTexture(inout STF_SamplerState stfSamplerState, bool stfEnabled, Te
     }
 }
 
-float4 SampleTextureGrad(inout STF_SamplerState stfSamplerState, bool stfEnabled, Texture2D texture, SamplerState materialSampler, float2 texCoord, float2 texGrad_x, float2 texGrad_y)
+float4 SampleTextureGrad(inout STF_SamplerState stfSamplerState, bool stfEnabled, bool ctfEnabled, Texture2D texture, SamplerState materialSampler, float2 texCoord, float2 texGrad_x, float2 texGrad_y)
 {
 #if STF_ENABLED
     if (stfEnabled)
     {
+        #if CTF_ENABLED
+        if (ctfEnabled)
+        {
+            uint magMethodCached = stfSamplerState.GetMagMethod();
+            stfSamplerState.SetMagMethod(STF_MAGNIFICATION_METHOD_NONE);
+            float4 color;
+        #if STF_LOAD
+            color = stfSamplerState.Texture2DLoadGrad(texture, texCoord, texGrad_x, texGrad_y);
+        #else
+            color = stfSamplerState.Texture2DSampleGrad(texture, materialSampler, texCoord, texGrad_x, texGrad_y);
+        #endif
+            stfSamplerState.SetMagMethod(magMethodCached);
+            return color;
+        }
+        #endif
+
         #if STF_LOAD
             return stfSamplerState.Texture2DLoadGrad(texture, texCoord, texGrad_x, texGrad_y);
         #else
@@ -215,6 +247,68 @@ float4 SampleTextureGrad(inout STF_SamplerState stfSamplerState, bool stfEnabled
     {
         return texture.SampleGrad(materialSampler, texCoord, texGrad_x, texGrad_y);
     }
+}
+
+void MagnifyTexturesCTF(
+    inout STF_SamplerState stfSamplerState,
+    inout MaterialTextureSample textures,
+    Texture2D tex,
+    float2 uv,
+    float mipLevel,
+    bool forceMipLevel,
+    float2 texGrad_x,
+    float2 texGrad_y,
+    int flags)
+{
+#if STF_ENABLED && CTF_ENABLED
+    int width;
+    int height;
+    int mipLevels;
+    tex.GetDimensions(0, width, height, mipLevels);
+
+    float3 samplePos;
+    if (forceMipLevel)
+    {
+        samplePos = stfSamplerState.Texture2DGetSamplePosLevel(width, height, mipLevels, uv, mipLevel);
+    }
+    else
+    {
+        samplePos = stfSamplerState.Texture2DGetSamplePosGrad(width, height, mipLevels, uv, texGrad_x, texGrad_y);
+    }
+
+    tex.GetDimensions(int(samplePos.z), width, height, mipLevels);
+
+    STF_WaveLaneData waveData = stfSamplerState.Tex2DSetupMagTexels(uv, samplePos.xy, width, height);
+
+    if ((flags & MaterialFlags_UseBaseOrDiffuseTexture) != 0)
+    {
+        textures.baseOrDiffuse = stfSamplerState.Texture2DMagnifyTexels(textures.baseOrDiffuse, waveData);
+    }
+    if ((flags & MaterialFlags_UseEmissiveTexture) != 0)
+    {
+        textures.emissive = stfSamplerState.Texture2DMagnifyTexels(textures.emissive, waveData);
+    }
+    if ((flags & MaterialFlags_UseNormalTexture) != 0)
+    {
+        textures.normal = stfSamplerState.Texture2DMagnifyTexels(textures.normal, waveData);
+    }
+    if ((flags & MaterialFlags_UseMetalRoughOrSpecularTexture) != 0)
+    {
+        textures.metalRoughOrSpecular = stfSamplerState.Texture2DMagnifyTexels(textures.metalRoughOrSpecular, waveData);
+    }
+    if ((flags & MaterialFlags_UseTransmissionTexture) != 0)
+    {
+        textures.transmission = stfSamplerState.Texture2DMagnifyTexels(textures.transmission, waveData);
+    }
+    if ((flags & MaterialFlags_UseOpacityTexture) != 0)
+    {
+        textures.opacity = stfSamplerState.Texture2DMagnifyTexels(textures.opacity, waveData).x;
+    }
+    if ((flags & MaterialFlags_UseOcclusionTexture) != 0)
+    {
+        textures.occlusion = stfSamplerState.Texture2DMagnifyTexels(textures.occlusion, waveData);
+    }
+#endif
 }
 
 MaterialSample sampleGeometryMaterial(
@@ -253,6 +347,11 @@ MaterialSample sampleGeometryMaterial(
 #else
     const bool stfEnabled = false;
 #endif
+#if CTF_ENABLED
+    bool ctfEnabled = stfEnabled;
+#else
+    const bool ctfEnabled = false;
+#endif
 
     if ((attributes & MatAttr_BaseColor) && (gs.material.baseOrDiffuseTextureIndex >= 0) && (gs.material.flags & MaterialFlags_UseBaseOrDiffuseTexture) != 0)
     {
@@ -260,11 +359,11 @@ MaterialSample sampleGeometryMaterial(
 
         if (forceMipLevel)
         {
-            textures.baseOrDiffuse = SampleTexture(samplerState, stfEnabled, diffuseTexture, materialSampler, gs.texcoord, mipLevel);
+            textures.baseOrDiffuse = SampleTexture(samplerState, stfEnabled, ctfEnabled, diffuseTexture, materialSampler, gs.texcoord, mipLevel);
         }
         else
         {
-            textures.baseOrDiffuse = SampleTextureGrad(samplerState, stfEnabled, diffuseTexture, materialSampler, gs.texcoord, texGrad_x, texGrad_y);
+            textures.baseOrDiffuse = SampleTextureGrad(samplerState, stfEnabled, ctfEnabled, diffuseTexture, materialSampler, gs.texcoord, texGrad_x, texGrad_y);
         }
     }
 
@@ -274,11 +373,11 @@ MaterialSample sampleGeometryMaterial(
 
         if (forceMipLevel)
         {
-            textures.emissive = SampleTexture(samplerState, stfEnabled, emissiveTexture, materialSampler, gs.texcoord, mipLevel);
+            textures.emissive = SampleTexture(samplerState, stfEnabled, ctfEnabled, emissiveTexture, materialSampler, gs.texcoord, mipLevel);
         }
         else
         {
-            textures.emissive = SampleTextureGrad(samplerState, stfEnabled, emissiveTexture, materialSampler, gs.texcoord, texGrad_x, texGrad_y);
+            textures.emissive = SampleTextureGrad(samplerState, stfEnabled, ctfEnabled, emissiveTexture, materialSampler, gs.texcoord, texGrad_x, texGrad_y);
         }
     }
     
@@ -288,11 +387,11 @@ MaterialSample sampleGeometryMaterial(
 
         if (forceMipLevel)
         {
-            textures.normal = SampleTexture(samplerState, stfEnabled, normalsTexture, materialSampler, gs.texcoord, mipLevel);
+            textures.normal = SampleTexture(samplerState, stfEnabled, ctfEnabled, normalsTexture, materialSampler, gs.texcoord, mipLevel);
         }
         else
         {
-            textures.normal = SampleTextureGrad(samplerState, stfEnabled, normalsTexture, materialSampler, gs.texcoord, texGrad_x, texGrad_y);
+            textures.normal = SampleTextureGrad(samplerState, stfEnabled, ctfEnabled, normalsTexture, materialSampler, gs.texcoord, texGrad_x, texGrad_y);
         }
     }
 
@@ -302,11 +401,11 @@ MaterialSample sampleGeometryMaterial(
 
         if (forceMipLevel)
         {
-            textures.metalRoughOrSpecular = SampleTexture(samplerState, stfEnabled, specularTexture, materialSampler, gs.texcoord, mipLevel);
+            textures.metalRoughOrSpecular = SampleTexture(samplerState, stfEnabled, ctfEnabled, specularTexture, materialSampler, gs.texcoord, mipLevel);
         }
         else
         {
-            textures.metalRoughOrSpecular = SampleTextureGrad(samplerState, stfEnabled, specularTexture, materialSampler, gs.texcoord, texGrad_x, texGrad_y);
+            textures.metalRoughOrSpecular = SampleTextureGrad(samplerState, stfEnabled, ctfEnabled, specularTexture, materialSampler, gs.texcoord, texGrad_x, texGrad_y);
         }
     }
 
@@ -316,13 +415,21 @@ MaterialSample sampleGeometryMaterial(
 
         if (forceMipLevel)
         {
-            textures.transmission = SampleTexture(samplerState, stfEnabled, transmissionTexture, materialSampler, gs.texcoord, mipLevel);
+            textures.transmission = SampleTexture(samplerState, stfEnabled, ctfEnabled, transmissionTexture, materialSampler, gs.texcoord, mipLevel);
         }
         else
         {
-            textures.transmission = SampleTextureGrad(samplerState, stfEnabled, transmissionTexture, materialSampler, gs.texcoord, texGrad_x, texGrad_y);
+            textures.transmission = SampleTextureGrad(samplerState, stfEnabled, ctfEnabled, transmissionTexture, materialSampler, gs.texcoord, texGrad_x, texGrad_y);
         }
     }
+
+#if CTF_ENABLED
+    if (ctfEnabled && (gs.material.flags & MaterialFlags_UseBaseOrDiffuseTexture) != 0)
+    {
+        Texture2D diffuseTexture = t_BindlessTextures[NonUniformResourceIndex(gs.material.baseOrDiffuseTextureIndex)];
+        MagnifyTexturesCTF(samplerState, textures, diffuseTexture, gs.texcoord, mipLevel, forceMipLevel, texGrad_x, texGrad_y, gs.material.flags);
+    }
+#endif
 
     return EvaluateSceneMaterial(gs.geometryNormal, gs.tangent, gs.material, textures);
 }
@@ -477,6 +584,26 @@ uint2 MakeQuadZLanes_16x2(uint2 pixelPosition)
     return pixelPositionBase + waveOffset;
 }
 
+// Row-linear 8x4 warp lane shuffle. The Quad/Fine wave-share magnification offsets
+// assume a warp laid out as 8 wide x 4 tall (lane = x + y*8), so lane+1 is the
+// horizontal neighbor and lane+8 is the vertical neighbor. Requires an 8-wide thread
+// group so each 32-lane warp spans exactly an 8x4 tile of DispatchThreadID.
+//  ---------------------------------
+// |  0  1  2  3  4  5  6  7 |
+// |  8  9 10 11 12 13 14 15 |
+// | 16 17 18 19 20 21 22 23 |
+// | 24 25 26 27 28 29 30 31 |
+//  ---------------------------------
+uint2 MakeRowLinearLanes_8x4(uint2 pixelPosition)
+{
+    const uint2 pixelPositionBase = uint2(pixelPosition.x & 0xFFFFFFF8, pixelPosition.y & 0xFFFFFFFC); // warps map to 8x4
+
+    const uint waveIndex = WaveGetLaneIndex();
+    const uint2 waveOffset = uint2(waveIndex & 7u, (waveIndex >> 3u) & 3u);
+
+    return pixelPositionBase + waveOffset;
+}
+
 // main entrypoint, called either from CS or RGS.
 void main(uint2 pixelPosition)
 {
@@ -492,6 +619,10 @@ void main(uint2 pixelPosition)
     }
 #endif
 
+    // The lane->pixel remap is only well-defined on the compute (RayQuery) path, where a
+    // 32-lane warp maps to a known thread-group tile. On the DXR 1.0 ray-gen path the
+    // warp<->pixel mapping is driver-defined, so leave pixelPosition untouched there.
+#if USE_RAY_QUERY
     if (g_Const.stfWaveLaneLayoutOverride == 0 /*None*/)
     {
         // noop - let driver / implementation decide.
@@ -504,6 +635,11 @@ void main(uint2 pixelPosition)
     {
         pixelPosition = MakeQuadZLanes_16x2(pixelPosition);
     }
+    else if (g_Const.stfWaveLaneLayoutOverride == 3)
+    {
+        pixelPosition = MakeRowLinearLanes_8x4(pixelPosition);
+    }
+#endif
     
     RayDesc ray = setupPrimaryRay(pixelPosition, g_Const.view);
 

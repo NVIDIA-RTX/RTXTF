@@ -14,6 +14,31 @@ set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS ON)
 
+# Detect the Windows *target* architecture. On an ARM64 host, CMAKE_SYSTEM_PROCESSOR
+# is still ARM64 even when configuring -A x64, so honor CMAKE_GENERATOR_PLATFORM first.
+# DX12 works on ARM64; DLSS/NGX has no Windows ARM64 support yet and is left off in DLSS.cmake.
+if (WIN32)
+    if (CMAKE_GENERATOR_PLATFORM MATCHES "^([Aa][Rr][Mm]64)$")
+        set(STF_ARM64 ON)
+    elseif (CMAKE_GENERATOR_PLATFORM MATCHES "^(x64|X64|AMD64|x86_64)$")
+        set(STF_ARM64 OFF)
+    elseif (CMAKE_GENERATOR_PLATFORM STREQUAL "" AND
+            CMAKE_SYSTEM_PROCESSOR MATCHES "^([Aa][Rr][Mm]64|[Aa][Aa][Rr][Cc][Hh]64)$")
+        set(STF_ARM64 ON)
+    else()
+        set(STF_ARM64 OFF)
+    endif()
+else()
+    set(STF_ARM64 OFF)
+endif()
+
+if (STF_ARM64)
+    set(STF_WINDOWS_ARCH "arm64")
+    message(STATUS "RTXTF: Configuring for Windows ARM64")
+else()
+    set(STF_WINDOWS_ARCH "x64")
+endif()
+
 # Helper to download and unzip a package from a URL
 # Uses a zero-length file to identify the version of the package
 function(CheckAndDownloadPackage NAME VERSION LOCAL_PATH URL)
@@ -36,9 +61,9 @@ endfunction()
 
 CheckAndDownloadPackage("DXC" "v2025_02_20" ${CMAKE_SOURCE_DIR}/external/dxc https://github.com/microsoft/DirectXShaderCompiler/releases/download/v1.8.2502/dxc_2025_02_20.zip)
 
-find_program (DXC_PATH "${CMAKE_SOURCE_DIR}/external/DXC/bin/x64/dxc")
+find_program (DXC_PATH "${CMAKE_SOURCE_DIR}/external/dxc/bin/${STF_WINDOWS_ARCH}/dxc")
 if (NOT DXC_PATH)
-    message (FATAL_ERROR "Can't find dxc in repo: ${WINDOWS_SDK_BIN}")
+    message (FATAL_ERROR "Can't find DXC (${STF_WINDOWS_ARCH}) under ${CMAKE_SOURCE_DIR}/external/dxc/bin/${STF_WINDOWS_ARCH}")
 endif ()
 
 include(DLSS.cmake)

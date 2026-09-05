@@ -1,7 +1,8 @@
 
 set(dlss_sdk "${CMAKE_CURRENT_SOURCE_DIR}/external/DLSS")
 
-if (WIN32)
+# NGX/DLSS ships x86_64 libraries only. Do not import them on Windows ARM64.
+if (WIN32 AND NOT STF_ARM64)
 	add_library(DLSS SHARED IMPORTED)
 
 	set(dlss_platform "Windows_x86_64")
@@ -30,7 +31,11 @@ elseif (UNIX AND CMAKE_SYSTEM_PROCESSOR STREQUAL "x64")
 	set(DLSS_SHARED_LIBRARY_PATH "${dlss_sdk}/lib/${dlss_platform}/$<IF:$<CONFIG:Debug>,dev,rel>/${dlss_lib}")
 
 else()
-	message("DLSS is not supported on the target platform.")
+	if (WIN32 AND STF_ARM64)
+		message(STATUS "DLSS is not supported on Windows ARM64; the sample will build with TAA only.")
+	else()
+		message("DLSS is not supported on the target platform.")
+	endif()
 endif()
 
 if (TARGET DLSS)

@@ -12,6 +12,29 @@ This document lists the necessary steps to get up and running with the RTXTF sam
 
 **2.** Configure and then generate the solution using CMake GUI (or the CLI) by setting the repository root as _source_ and specifying a new _build_ directory in the root.
 
+Windows x64 (Visual Studio 2022):
+
+```
+cmake -S . -B build -G "Visual Studio 17 2022" -A x64
+cmake --build build --config Release
+```
+
+Windows ARM64 (Visual Studio 2022 with ARM64 C++ tools):
+
+```
+cmake -S . -B build -G "Visual Studio 17 2022" -A ARM64
+cmake --build build --config Release
+```
+
+Ninja from the "ARM64 Native Tools Command Prompt for VS 2022" also works:
+
+```
+cmake -S . -B build-ninja -G Ninja -DCMAKE_BUILD_TYPE=Release
+cmake --build build-ninja
+```
+
+DLSS is disabled automatically on Windows ARM64.
+
 **3.** Build the solution and run the `Examples/STF Bindless Rendering/stf_bindless_rendering` sample.
 
 ### The stf_bindless_rendering sample

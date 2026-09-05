@@ -90,6 +90,7 @@ protected:
         PixelShaderMacros.push_back(ShaderMacro("MOTION_VECTORS", params.enableMotionVectors ? "1" : "0"));
         PixelShaderMacros.push_back(ShaderMacro("ALPHA_TESTED", alphaTested ? "1" : "0"));
         PixelShaderMacros.push_back(ShaderMacro("ALLOW_HELPER_LANES", m_ui->allowHelperLanesInWaveIntrinsics ? "1" : "0"));
+        PixelShaderMacros.push_back(ShaderMacro("CTF_ENABLED", (GetStfOn(m_ui->samplerType) && m_ui->enableCtfMagnify) ? "1" : "0"));
 
         return shaderFactory.CreateAutoShader("app/gbuffer_stf_ps.hlsl", "main", DONUT_MAKE_PLATFORM_SHADER(g_gbuffer_stf_ps), &PixelShaderMacros, nvrhi::ShaderType::Pixel);
     }
@@ -348,7 +349,7 @@ public:
 
         const std::filesystem::path stbnTexturePath = app::GetDirectoryWithExecutable().parent_path() / "assets/media/STBN/STBlueNoise_vec2_128x128x64.png";
 
-        m_STBNTexture = m_TextureCache->LoadTextureFromFileDeferred(stbnTexturePath, false);
+        m_STBNTexture = m_TextureCache->LoadTextureFromFileDeferred(stbnTexturePath, TextureLoadOptions{ SRGBModeFromBool(false) });
 
         if (m_TextureCache->IsTextureLoaded(m_STBNTexture))
         {
@@ -508,6 +509,7 @@ public:
             { "STF_LOAD", (GetStfOn(m_ui->samplerType) && m_ui->stfLoad) ? "1" : "0" },
             { "THREAD_SIZE_X", dimX },
             { "THREAD_SIZE_Y", dimY },
+            { "CTF_ENABLED", (GetStfOn(m_ui->samplerType) && m_ui->enableCtfMagnify) ? "1" : "0" },
         };
 
         m_ComputeShader = m_ShaderFactory->CreateShader("app/stf_bindless_rendering_cs.hlsl", "main_cs", &defines, nvrhi::ShaderType::Compute);
@@ -530,7 +532,7 @@ public:
 
     bool CreateRayTracingPipeline(ShaderFactory& shaderFactory)
     {
-        std::vector<ShaderMacro> defines = { { "USE_RAY_QUERY", "0" }, { "STF_ENABLED", GetStfOn(m_ui->samplerType) ? "1" : "0" }, { "STF_LOAD", (GetStfOn(m_ui->samplerType) && m_ui->stfLoad) ? "1" : "0" } };
+        std::vector<ShaderMacro> defines = { { "USE_RAY_QUERY", "0" }, { "STF_ENABLED", GetStfOn(m_ui->samplerType) ? "1" : "0" }, { "STF_LOAD", (GetStfOn(m_ui->samplerType) && m_ui->stfLoad) ? "1" : "0" }, { "CTF_ENABLED", (GetStfOn(m_ui->samplerType) && m_ui->enableCtfMagnify) ? "1" : "0" } };
         m_ShaderLibraryLib = shaderFactory.CreateShaderLibrary("app/stf_bindless_rendering_lib.hlsl", &defines);
         m_ShaderLibraryHitGroup = shaderFactory.CreateShaderLibrary("app/stf_bindless_rendering_hit_group.hlsl", &defines);
 
@@ -725,11 +727,13 @@ public:
         if (!m_RenderTargets || m_ui->aaModeChanged)
         {
             // Get optimal render resolution before creating render targets
+#if ENABLE_DLSS
             if (m_DLSS->IsSupported() && m_ui->aaMode == AntiAliasingMode::DLSS)
             {
                 m_DLSS->SetRenderSize(outputWidth, outputHeight, GetNativeDLSSModes(m_ui->qualityMode));
                 m_DLSS->GetRenderSize(&inputWidth, &inputHeight, &outputWidth, &outputHeight);
             }
+#endif
 
             m_RenderTargets = std::make_unique<RenderTargets>(GetDevice(), int2(inputWidth, inputHeight), int2(outputWidth, outputHeight));
 
@@ -752,10 +756,12 @@ public:
             m_ui->aaModeChanged = false;
         }
 
+#if ENABLE_DLSS
         if (m_DLSS->IsSupported() && m_ui->aaMode == AntiAliasingMode::DLSS)
         {
             m_DLSS->GetRenderSize(&inputWidth, &inputHeight, &outputWidth, &outputHeight);
         }
+#endif
 
         m_CommandList->open();
 

@@ -121,8 +121,50 @@ enum class StfWaveLaneLayout
     None,
     RowLinear16x2,
     QuadZ16x2,
+    RowLinear8x4,
 };
 
+inline static bool StfIs8WideGroup(StfThreadGroupSize group)
+{
+    return group == StfThreadGroupSize::_8x8 || group == StfThreadGroupSize::_8x16;
+}
+
+// The fixed-offset Quad/Fine methods are the only ones whose wave sharing depends on the
+// lane->pixel layout. MinMax/Mask address lanes dynamically and Default does no sharing,
+// so the lane layout does not apply to them.
+inline static bool StfIsWaveShareMagMethod(StfMagMethod method)
+{
+    return method >= StfMagMethod::Filter2x2Quad && method <= StfMagMethod::Filter4x4Fine;
+}
+
+// A layout is only valid when its warp tiling matches the thread-group width, so the
+// pixel<->lane remap stays a bijection over each 32-lane warp. Mismatched combos (e.g. an
+// 8x4 remap on a 16-wide group) leave half the pixels unwritten.
+inline static bool StfIsLaneLayoutValidForGroup(StfWaveLaneLayout layout, StfThreadGroupSize group)
+{
+    switch (layout)
+    {
+    case StfWaveLaneLayout::RowLinear8x4:  return StfIs8WideGroup(group);   // needs an 8-wide group
+    case StfWaveLaneLayout::RowLinear16x2:
+    case StfWaveLaneLayout::QuadZ16x2:     return !StfIs8WideGroup(group);  // need a 16-wide group
+    case StfWaveLaneLayout::None:
+    default:                               return true;
+    }
+}
+
+// Whether a layout produces correct output for a given method+group. The fixed-offset
+// Quad/Fine methods hard-code an 8-wide warp tiling (share offsets like {0,1,8,9} treat
+// lane+8 as the vertical neighbor; 3x3/4x4 stride rows by 8 and need 3-4 rows), so the
+// only layout that works for them is Row Linear 8x4 on an 8-wide group. For other methods
+// the layout doesn't affect output, so any bijective (non-corrupting) layout is fine.
+inline static bool StfIsLaneLayoutUsable(StfWaveLaneLayout layout, StfMagMethod method, StfThreadGroupSize group)
+{
+    if (StfIsWaveShareMagMethod(method))
+        return layout == StfWaveLaneLayout::RowLinear8x4 && StfIs8WideGroup(group);
+    return StfIsLaneLayoutValidForGroup(layout, group);
+}
+
+#if ENABLE_DLSS
 // Ultra Quality is broken and is not used in the sample application for DLSS, punting for now until we get more answers for DLSS team
 enum class DLSSQualityModes
 {
@@ -151,6 +193,7 @@ static NVSDK_NGX_PerfQuality_Value GetNativeDLSSModes(DLSSQualityModes mode)
         return NVSDK_NGX_PerfQuality_Value::NVSDK_NGX_PerfQuality_Value_DLAA;
     };
 }
+#endif
 
 struct UIData
 {
@@ -162,11 +205,7 @@ struct UIData
 
     bool enableTextures = true;
 
-#if ENABLE_DLSS
     AntiAliasingMode aaMode = AntiAliasingMode::TAA;
-#else
-    AntiAliasingMode aaMode = AntiAliasingMode::None;
-#endif
     bool aaModeChanged = false;
 
     bool enableAnimations = true;
@@ -199,13 +238,15 @@ struct UIData
 
     StfPipelineType stfPipelineType = StfPipelineType::Compute;
     StfThreadGroupSize stfGroupSize = StfThreadGroupSize::_8x8;
-    StfWaveLaneLayout stfWaveLaneLayoutOverride = StfWaveLaneLayout::None;
+    StfWaveLaneLayout stfWaveLaneLayoutOverride = StfWaveLaneLayout::RowLinear8x4;
     int stfDebugVisualizeLanes = 0;
 
     bool enableFpsLimit = true;
     uint32_t fpsLimit = 60;
 
     donut::render::TemporalAntiAliasingJitter temporalJitter = donut::render::TemporalAntiAliasingJitter::Halton;
+
+    bool enableCtfMagnify = false;
 
     UIData();
 };

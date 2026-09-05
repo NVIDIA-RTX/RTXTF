@@ -89,11 +89,27 @@ Texture2D t_Opacity              : REGISTER_SRV(MATERIAL_OPACITY_SLOT,       MAT
 SamplerState s_MaterialSampler   : REGISTER_SAMPLER(MATERIAL_SAMPLER_SLOT,   MATERIAL_SAMPLER_REGISTER_SPACE);
 Texture2D STBN2DTexture          : REGISTER_SRV(MATERIAL_BLUE_NOISE_SLOT,    GBUFFER_SPACE_VIEW);
 
-float4 SampleTexture(inout STF_SamplerState stfSamplerState, bool stfEnabled, Texture2D texture, SamplerState materialSampler, float2 texCoord)
+float4 SampleTexture(inout STF_SamplerState stfSamplerState, bool stfEnabled, bool ctfEnabled, Texture2D texture, SamplerState materialSampler, float2 texCoord)
 {
 #if STF_ENABLED
     if (stfEnabled)
     {
+        #if CTF_ENABLED
+        if (ctfEnabled)
+        {
+            uint magMethodCached = stfSamplerState.GetMagMethod();
+            stfSamplerState.SetMagMethod(STF_MAGNIFICATION_METHOD_NONE);
+            float4 color;
+        #if STF_LOAD
+            color = stfSamplerState.Texture2DLoad(texture, texCoord);
+        #else
+            color = stfSamplerState.Texture2DSample(texture, materialSampler, texCoord);
+        #endif
+            stfSamplerState.SetMagMethod(magMethodCached);
+            return color;
+        }
+        #endif
+
         #if STF_LOAD
             return stfSamplerState.Texture2DLoad(texture, texCoord);
         #else
@@ -106,11 +122,27 @@ float4 SampleTexture(inout STF_SamplerState stfSamplerState, bool stfEnabled, Te
     }
 }
 
-float4 SampleTextureLevel(inout STF_SamplerState stfSamplerState, bool stfEnabled, Texture2D texture, SamplerState materialSampler, float2 texCoord, float mipLevel)
+float4 SampleTextureLevel(inout STF_SamplerState stfSamplerState, bool stfEnabled, bool ctfEnabled, Texture2D texture, SamplerState materialSampler, float2 texCoord, float mipLevel)
 {
 #if STF_ENABLED
     if (stfEnabled)
     {
+        #if CTF_ENABLED
+        if (ctfEnabled)
+        {
+            uint magMethodCached = stfSamplerState.GetMagMethod();
+            stfSamplerState.SetMagMethod(STF_MAGNIFICATION_METHOD_NONE);
+            float4 color;
+        #if STF_LOAD
+            color = stfSamplerState.Texture2DLoadLevel(texture, texCoord, mipLevel);
+        #else
+            color = stfSamplerState.Texture2DSampleLevel(texture, materialSampler, texCoord, mipLevel);
+        #endif
+            stfSamplerState.SetMagMethod(magMethodCached);
+            return color;
+        }
+        #endif
+    
         #if STF_LOAD
             return stfSamplerState.Texture2DLoadLevel(texture, texCoord, mipLevel);
         #else
@@ -123,11 +155,27 @@ float4 SampleTextureLevel(inout STF_SamplerState stfSamplerState, bool stfEnable
     }
 }
 
-float4 SampleTextureGrad(inout STF_SamplerState stfSamplerState, bool stfEnabled, Texture2D texture, SamplerState materialSampler, float2 texCoord, float2 dx, float2 dy)
+float4 SampleTextureGrad(inout STF_SamplerState stfSamplerState, bool stfEnabled, bool ctfEnabled, Texture2D texture, SamplerState materialSampler, float2 texCoord, float2 dx, float2 dy)
 {
 #if STF_ENABLED
     if (stfEnabled)
     {
+        #if CTF_ENABLED
+        if (ctfEnabled)
+        {
+            uint magMethodCached = stfSamplerState.GetMagMethod();
+            stfSamplerState.SetMagMethod(STF_MAGNIFICATION_METHOD_NONE);
+            float4 color;
+        #if STF_LOAD
+            color = stfSamplerState.Texture2DLoadGrad(texture, texCoord, dx, dy);
+        #else
+            color = stfSamplerState.Texture2DSampleGrad(texture, materialSampler, texCoord, dx, dy);
+        #endif
+            stfSamplerState.SetMagMethod(magMethodCached);
+            return color;
+        }
+        #endif
+    
         #if STF_LOAD
             return stfSamplerState.Texture2DLoadGrad(texture, texCoord, dx, dy);
         #else
@@ -138,6 +186,58 @@ float4 SampleTextureGrad(inout STF_SamplerState stfSamplerState, bool stfEnabled
     {
         return texture.SampleGrad(materialSampler, texCoord, dx, dy);
     }
+}
+
+void MagnifyTexturesCTF(
+    inout STF_SamplerState stfSamplerState,
+    inout MaterialTextureSample textures,
+    Texture2D tex,
+    float2 uv,
+    float2 dx,
+    float2 dy,
+    int flags)
+{
+#if STF_ENABLED && CTF_ENABLED
+    int width;
+    int height;
+    int mipLevels;
+    tex.GetDimensions(0, width, height, mipLevels);
+    
+    float3 samplePos = stfSamplerState.Texture2DGetSamplePos(width, height, mipLevels, uv);
+    
+    tex.GetDimensions(int(samplePos.z), width, height, mipLevels);
+
+    STF_WaveLaneData waveData = stfSamplerState.Tex2DSetupMagTexels(uv, samplePos.xy, width, height);
+
+    if ((flags & MaterialFlags_UseBaseOrDiffuseTexture) != 0)
+    {
+        textures.baseOrDiffuse = stfSamplerState.Texture2DMagnifyTexels(textures.baseOrDiffuse, waveData);
+    }
+    if ((flags & MaterialFlags_UseEmissiveTexture) != 0)
+    {
+        textures.emissive = stfSamplerState.Texture2DMagnifyTexels(textures.emissive, waveData);
+    }
+    if ((flags & MaterialFlags_UseNormalTexture) != 0)
+    {
+        textures.normal.rgba = stfSamplerState.Texture2DMagnifyTexels(textures.normal.rgba, waveData);
+    }
+    if ((flags & MaterialFlags_UseMetalRoughOrSpecularTexture) != 0)
+    {
+        textures.metalRoughOrSpecular = stfSamplerState.Texture2DMagnifyTexels(textures.metalRoughOrSpecular, waveData);
+    }
+    if ((flags & MaterialFlags_UseTransmissionTexture) != 0)
+    {
+        textures.transmission = stfSamplerState.Texture2DMagnifyTexels(textures.transmission, waveData);
+    }
+    if ((flags & MaterialFlags_UseOpacityTexture) != 0)
+    {
+        textures.opacity = stfSamplerState.Texture2DMagnifyTexels(textures.opacity, waveData).x;
+    }
+    if ((flags & MaterialFlags_UseOcclusionTexture) != 0)
+    {
+        textures.occlusion = stfSamplerState.Texture2DMagnifyTexels(textures.occlusion, waveData);
+    }
+#endif
 }
 
 void InitSTF(inout STF_SamplerState stfSamplerState, uint2 pixelPosition)
@@ -174,41 +274,53 @@ MaterialTextureSample SampleMaterialTextures(float2 texCoord, float2 normalTexCo
 #else
     const bool stfEnabled = false;
 #endif
+#if CTF_ENABLED
+    bool ctfEnabled = stfEnabled;
+#else
+    const bool ctfEnabled = false;
+#endif
 
     if ((g_Material.flags & MaterialFlags_UseBaseOrDiffuseTexture) != 0)
     {
-        values.baseOrDiffuse = SampleTexture(stfSamplerState, stfEnabled, t_BaseOrDiffuse, s_MaterialSampler, texCoord);
+        values.baseOrDiffuse = SampleTexture(stfSamplerState, stfEnabled, ctfEnabled, t_BaseOrDiffuse, s_MaterialSampler, texCoord);
     }
 
     if ((g_Material.flags & MaterialFlags_UseMetalRoughOrSpecularTexture) != 0)
     {
-        values.metalRoughOrSpecular = SampleTexture(stfSamplerState, stfEnabled, t_MetalRoughOrSpecular, s_MaterialSampler, texCoord);
+        values.metalRoughOrSpecular = SampleTexture(stfSamplerState, stfEnabled, ctfEnabled, t_MetalRoughOrSpecular, s_MaterialSampler, texCoord);
     }
 
     if ((g_Material.flags & MaterialFlags_UseEmissiveTexture) != 0)
     {
-        values.emissive = SampleTexture(stfSamplerState, stfEnabled, t_Emissive, s_MaterialSampler, texCoord);
+        values.emissive = SampleTexture(stfSamplerState, stfEnabled, ctfEnabled, t_Emissive, s_MaterialSampler, texCoord);
     }
 
     if ((g_Material.flags & MaterialFlags_UseNormalTexture) != 0)
     {
-        values.normal = SampleTexture(stfSamplerState, stfEnabled, t_Normal, s_MaterialSampler, texCoord);
+        values.normal = SampleTexture(stfSamplerState, stfEnabled, ctfEnabled, t_Normal, s_MaterialSampler, texCoord);
     }
 
     if ((g_Material.flags & MaterialFlags_UseOcclusionTexture) != 0)
     {
-        values.occlusion = SampleTexture(stfSamplerState, stfEnabled, t_Occlusion, s_MaterialSampler, texCoord);
+        values.occlusion = SampleTexture(stfSamplerState, stfEnabled, ctfEnabled, t_Occlusion, s_MaterialSampler, texCoord);
     }
 
     if ((g_Material.flags & MaterialFlags_UseTransmissionTexture) != 0)
     {
-        values.transmission = SampleTexture(stfSamplerState, stfEnabled, t_Transmission, s_MaterialSampler, texCoord);
+        values.transmission = SampleTexture(stfSamplerState, stfEnabled, ctfEnabled, t_Transmission, s_MaterialSampler, texCoord);
     }
 
     if ((g_Material.flags & MaterialFlags_UseOpacityTexture) != 0)
     {
-        values.opacity = SampleTexture(stfSamplerState, stfEnabled, t_Opacity, s_MaterialSampler, texCoord).x;
+        values.opacity = SampleTexture(stfSamplerState, stfEnabled, ctfEnabled, t_Opacity, s_MaterialSampler, texCoord).x;
     }
+
+#if CTF_ENABLED
+    if (ctfEnabled && (g_Material.flags & MaterialFlags_UseBaseOrDiffuseTexture) != 0)
+    {
+        MagnifyTexturesCTF(stfSamplerState, values, t_BaseOrDiffuse, texCoord, ddx(texCoord), ddy(texCoord), g_Material.flags);
+    }
+#endif
 
     return values;
 }
@@ -229,41 +341,53 @@ MaterialTextureSample SampleMaterialTexturesLevel(float2 texCoord, float lod, fl
 #else
     const bool stfEnabled = false;
 #endif
+#if CTF_ENABLED
+    bool ctfEnabled = stfEnabled;
+#else
+    const bool ctfEnabled = false;
+#endif
 
     if ((g_Material.flags & MaterialFlags_UseBaseOrDiffuseTexture) != 0)
     {
-        values.baseOrDiffuse = SampleTextureLevel(stfSamplerState, stfEnabled, t_BaseOrDiffuse, s_MaterialSampler, texCoord, lod);
+        values.baseOrDiffuse = SampleTextureLevel(stfSamplerState, stfEnabled, ctfEnabled, t_BaseOrDiffuse, s_MaterialSampler, texCoord, lod);
     }
 
     if ((g_Material.flags & MaterialFlags_UseMetalRoughOrSpecularTexture) != 0)
     {
-        values.metalRoughOrSpecular = SampleTextureLevel(stfSamplerState, stfEnabled, t_MetalRoughOrSpecular, s_MaterialSampler, texCoord, lod);
+        values.metalRoughOrSpecular = SampleTextureLevel(stfSamplerState, stfEnabled, ctfEnabled, t_MetalRoughOrSpecular, s_MaterialSampler, texCoord, lod);
     }
 
     if ((g_Material.flags & MaterialFlags_UseEmissiveTexture) != 0)
     {
-        values.emissive = SampleTextureLevel(stfSamplerState, stfEnabled, t_Emissive, s_MaterialSampler, texCoord, lod);
+        values.emissive = SampleTextureLevel(stfSamplerState, stfEnabled, ctfEnabled, t_Emissive, s_MaterialSampler, texCoord, lod);
     }
 
     if ((g_Material.flags & MaterialFlags_UseNormalTexture) != 0)
     {
-        values.normal = SampleTextureLevel(stfSamplerState, stfEnabled, t_Normal, s_MaterialSampler, texCoord, lod);
+        values.normal = SampleTextureLevel(stfSamplerState, stfEnabled, ctfEnabled, t_Normal, s_MaterialSampler, texCoord, lod);
     }
 
     if ((g_Material.flags & MaterialFlags_UseOcclusionTexture) != 0)
     {
-        values.occlusion = SampleTextureLevel(stfSamplerState, stfEnabled, t_Occlusion, s_MaterialSampler, texCoord, lod);
+        values.occlusion = SampleTextureLevel(stfSamplerState, stfEnabled, ctfEnabled, t_Occlusion, s_MaterialSampler, texCoord, lod);
     }
 
     if ((g_Material.flags & MaterialFlags_UseTransmissionTexture) != 0)
     {
-        values.transmission = SampleTextureLevel(stfSamplerState, stfEnabled, t_Transmission, s_MaterialSampler, texCoord, lod);
+        values.transmission = SampleTextureLevel(stfSamplerState, stfEnabled, ctfEnabled, t_Transmission, s_MaterialSampler, texCoord, lod);
     }
 
     if ((g_Material.flags & MaterialFlags_UseOpacityTexture) != 0)
     {
-        values.opacity = SampleTextureLevel(stfSamplerState, stfEnabled, t_Opacity, s_MaterialSampler, texCoord, lod).x;
+        values.opacity = SampleTextureLevel(stfSamplerState, stfEnabled, ctfEnabled, t_Opacity, s_MaterialSampler, texCoord, lod).x;
     }
+
+#if CTF_ENABLED
+    if (ctfEnabled && (g_Material.flags & MaterialFlags_UseBaseOrDiffuseTexture) != 0)
+    {
+        MagnifyTexturesCTF(stfSamplerState, values, t_BaseOrDiffuse, texCoord, ddx(texCoord), ddy(texCoord), g_Material.flags);
+    }
+#endif
 
     return values;
 }
@@ -284,41 +408,53 @@ MaterialTextureSample SampleMaterialTexturesGrad(float2 texCoord, float2 ddx, fl
 #else
     const bool stfEnabled = false;
 #endif
+#if CTF_ENABLED
+    bool ctfEnabled = stfEnabled;
+#else
+    const bool ctfEnabled = false;
+#endif
 
     if ((g_Material.flags & MaterialFlags_UseBaseOrDiffuseTexture) != 0)
     {
-        values.baseOrDiffuse = SampleTextureGrad(stfSamplerState, stfEnabled, t_BaseOrDiffuse, s_MaterialSampler, texCoord, ddx, ddy);
+        values.baseOrDiffuse = SampleTextureGrad(stfSamplerState, stfEnabled, ctfEnabled, t_BaseOrDiffuse, s_MaterialSampler, texCoord, ddx, ddy);
     }
 
     if ((g_Material.flags & MaterialFlags_UseMetalRoughOrSpecularTexture) != 0)
     {
-        values.metalRoughOrSpecular = SampleTextureGrad(stfSamplerState, stfEnabled, t_MetalRoughOrSpecular, s_MaterialSampler, texCoord, ddx, ddy);
+        values.metalRoughOrSpecular = SampleTextureGrad(stfSamplerState, stfEnabled, ctfEnabled, t_MetalRoughOrSpecular, s_MaterialSampler, texCoord, ddx, ddy);
     }
 
     if ((g_Material.flags & MaterialFlags_UseEmissiveTexture) != 0)
     {
-        values.emissive = SampleTextureGrad(stfSamplerState, stfEnabled, t_Emissive, s_MaterialSampler, texCoord, ddx, ddy);
+        values.emissive = SampleTextureGrad(stfSamplerState, stfEnabled, ctfEnabled, t_Emissive, s_MaterialSampler, texCoord, ddx, ddy);
     }
 
     if ((g_Material.flags & MaterialFlags_UseNormalTexture) != 0)
     {
-        values.normal = SampleTextureGrad(stfSamplerState, stfEnabled, t_Normal, s_MaterialSampler, texCoord, ddx, ddy);
+        values.normal = SampleTextureGrad(stfSamplerState, stfEnabled, ctfEnabled, t_Normal, s_MaterialSampler, texCoord, ddx, ddy);
     }
 
     if ((g_Material.flags & MaterialFlags_UseOcclusionTexture) != 0)
     {
-        values.occlusion = SampleTextureGrad(stfSamplerState, stfEnabled, t_Occlusion, s_MaterialSampler, texCoord, ddx, ddy);
+        values.occlusion = SampleTextureGrad(stfSamplerState, stfEnabled, ctfEnabled, t_Occlusion, s_MaterialSampler, texCoord, ddx, ddy);
     }
 
     if ((g_Material.flags & MaterialFlags_UseTransmissionTexture) != 0)
     {
-        values.transmission = SampleTextureGrad(stfSamplerState, stfEnabled, t_Transmission, s_MaterialSampler, texCoord, ddx, ddy);
+        values.transmission = SampleTextureGrad(stfSamplerState, stfEnabled, ctfEnabled, t_Transmission, s_MaterialSampler, texCoord, ddx, ddy);
     }
 
     if ((g_Material.flags & MaterialFlags_UseOpacityTexture) != 0)
     {
-        values.opacity = SampleTextureGrad(stfSamplerState, stfEnabled, t_Opacity, s_MaterialSampler, texCoord, ddx, ddy).x;
+        values.opacity = SampleTextureGrad(stfSamplerState, stfEnabled, ctfEnabled, t_Opacity, s_MaterialSampler, texCoord, ddx, ddy).x;
     }
+
+#if CTF_ENABLED
+    if (ctfEnabled && (g_Material.flags & MaterialFlags_UseBaseOrDiffuseTexture) != 0)
+    {
+        MagnifyTexturesCTF(stfSamplerState, values, t_BaseOrDiffuse, texCoord, ddx, ddy, g_Material.flags);
+    }
+#endif
 
     return values;
 }
